@@ -201,6 +201,10 @@ button:disabled {
   box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
 }
 
+.panel canvas {
+  height: 340px !important;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -273,6 +277,12 @@ td {
 
 th {
   color: #334155;
+}
+
+.table-note {
+  margin: 0 0 0.7rem;
+  color: #475569;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 1024px) {

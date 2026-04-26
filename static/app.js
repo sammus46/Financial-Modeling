@@ -66,6 +66,9 @@ function renderChart(ages, postTaxBalances, goalLine) {
   });
 
   const ctx = chartEl.getContext("2d");
+  const balanceGradient = ctx.createLinearGradient(0, 0, 0, chartEl.height || 320);
+  balanceGradient.addColorStop(0, "rgba(59, 130, 246, 0.34)");
+  balanceGradient.addColorStop(1, "rgba(59, 130, 246, 0.03)");
 
   if (portfolioChart) {
     portfolioChart.destroy();
@@ -79,9 +82,13 @@ function renderChart(ages, postTaxBalances, goalLine) {
         {
           label: "Portfolio Value (Post-Tax)",
           data: postTaxBalances,
-          borderColor: "#0d6efd",
-          tension: 0.2,
-          pointRadius: 2,
+          borderColor: "#2563eb",
+          backgroundColor: balanceGradient,
+          fill: true,
+          borderWidth: 3,
+          tension: 0.32,
+          pointRadius: 0,
+          pointHoverRadius: 4,
         },
         {
           label: "Retirement Goal",
@@ -90,20 +97,44 @@ function renderChart(ages, postTaxBalances, goalLine) {
           borderDash: [8, 6],
           tension: 0,
           pointRadius: 0,
+          borderWidth: 2,
         },
       ],
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "index",
+      },
       scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+        },
         y: {
+          grid: {
+            color: "rgba(148, 163, 184, 0.2)",
+          },
           ticks: {
             callback: (value) => currency(value),
           },
         },
       },
       plugins: {
+        legend: {
+          labels: {
+            usePointStyle: true,
+            boxWidth: 10,
+          },
+        },
         tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.92)",
+          borderColor: "rgba(148, 163, 184, 0.25)",
+          borderWidth: 1,
+          padding: 10,
           callbacks: {
             label: (context) => ` ${context.dataset.label}: ${currency(context.parsed.y)}`,
           },
@@ -116,35 +147,29 @@ function renderChart(ages, postTaxBalances, goalLine) {
 function renderStats(stats) {
   const metricLabels = {
     actual_withdrawal_rate: "Actual withdrawal rate",
-    yearly_savings_goal: "Yearly savings",
-    monthly_savings_goal: "Monthly savings",
-    additional_yearly_savings_needed: "Additional yearly savings needed",
     future_value_pre_tax_at_retirement: "Future value at retirement (pre-tax)",
     future_value_after_tax_at_retirement: "Future value at retirement (after-tax)",
     traditional_balance_at_retirement: "Traditional balance at retirement",
     roth_balance_at_retirement: "Roth balance at retirement",
     brokerage_balance_at_retirement: "Brokerage balance at retirement",
-    projected_income_at_retirement: "Projected salary at retirement",
-    yearly_salary_at_retirement: "Yearly salary at retirement (SWR)",
+    total_balance_at_retirement: "Total balance at retirement",
+    projected_income_at_retirement: "Projected salary at retirement (employment income)",
+    yearly_salary_at_retirement: "Yearly salary at retirement (SWR portfolio income)",
     first_year_retirement_spending: "First-year retirement spending target",
-    target_nest_egg: "Target nest egg",
     retirement_goal_achieved_pct: "Retirement goal achieved",
   };
 
   const orderedKeys = [
     "actual_withdrawal_rate",
-    "yearly_savings_goal",
-    "monthly_savings_goal",
-    "additional_yearly_savings_needed",
     "future_value_pre_tax_at_retirement",
     "future_value_after_tax_at_retirement",
     "traditional_balance_at_retirement",
     "roth_balance_at_retirement",
     "brokerage_balance_at_retirement",
+    "total_balance_at_retirement",
     "projected_income_at_retirement",
     "yearly_salary_at_retirement",
     "first_year_retirement_spending",
-    "target_nest_egg",
     "retirement_goal_achieved_pct",
   ];
 
@@ -173,7 +198,7 @@ function renderSummary(stats) {
     "future_value_after_tax_at_retirement",
     stats.future_value_after_tax_at_retirement.actual,
   );
-  targetValueEl.textContent = formatMetricValue("target_nest_egg", stats.target_nest_egg.goal);
+  targetValueEl.textContent = formatMetricValue("total_balance_at_retirement", stats.total_balance_at_retirement.goal);
 
   const statusClass = goalPct >= 100 ? "status-good" : goalPct >= 75 ? "status-mid" : "status-low";
   [goalCardEl, projectedCardEl, targetCardEl].forEach((card) => {
