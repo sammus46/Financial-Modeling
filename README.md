@@ -21,6 +21,11 @@ Open `http://127.0.0.1:5000`.
 
 This version keeps the model straightforward while adding a few practical levers:
 
+- Inputs are grouped into personal, investment, and retirement sections.
+- Contribution method is either:
+  - `% of income saved`, or
+  - `fixed annual contribution`.
+- Each account type (traditional, Roth, brokerage) can use its own pre-tax annual return rate.
 - Income can grow annually via an expected salary growth input.
 - Contributions include both `% of paycheck` and a fixed annual dollar contribution.
 - Each account type (traditional, Roth, brokerage) can use its own annual return rate.
@@ -28,4 +33,6 @@ This version keeps the model straightforward while adding a few practical levers
   - traditional: taxed by the user-provided retirement tax rate,
   - Roth: tax-free,
   - brokerage: taxed by the user-provided retirement tax rate.
+- Portfolio chart shows post-tax portfolio value and a flat retirement goal line.
+- Retirement spending target is based on today's income, retirement spending %, and inflation to retirement age.
 - Retirement spending target is still based on today's income, retirement spending %, and inflation to retirement age.

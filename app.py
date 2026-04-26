@@ -17,6 +17,7 @@ class RetirementInputs:
     brokerage_assets: float
     annual_income: float
     salary_growth_rate: float
+    contribution_mode: str
     savings_rate: float
     fixed_annual_contribution: float
     inflation_rate: float
@@ -37,11 +38,32 @@ def _to_decimal(percent: float) -> float:
     return percent / 100.0
 
 
+def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
+    value = payload.get(key, default)
+    if value is None or value == "":
+        return default
+    return float(value)
+
+
+def _safe_allocation_weights(
+    traditional: float,
+    roth: float,
+    brokerage: float,
+) -> tuple[float, float, float]:
 def _safe_allocation_weights(traditional: float, roth: float, brokerage: float) -> tuple[float, float, float]:
     total = traditional + roth + brokerage
     if isclose(total, 0.0):
         return (1 / 3, 1 / 3, 1 / 3)
     return (traditional / total, roth / total, brokerage / total)
+
+
+def _after_tax_value(data: RetirementInputs, traditional_balance: float, roth_balance: float, brokerage_balance: float) -> float:
+    trad_tax = _to_decimal(data.traditional_retirement_tax_rate)
+    brokerage_tax = _to_decimal(data.brokerage_retirement_tax_rate)
+    trad_after_tax = traditional_balance * (1 - trad_tax)
+    roth_after_tax = roth_balance
+    brokerage_after_tax = brokerage_balance * (1 - brokerage_tax)
+    return trad_after_tax + roth_after_tax + brokerage_after_tax
 
 
 def parse_inputs(payload: dict) -> RetirementInputs:
@@ -52,6 +74,25 @@ def parse_inputs(payload: dict) -> RetirementInputs:
         data = RetirementInputs(
             current_age=current_age,
             retirement_age=retirement_age,
+            traditional_assets=_parse_float(payload, "traditional_assets"),
+            roth_assets=_parse_float(payload, "roth_assets"),
+            brokerage_assets=_parse_float(payload, "brokerage_assets"),
+            annual_income=_parse_float(payload, "annual_income"),
+            salary_growth_rate=_parse_float(payload, "salary_growth_rate"),
+            contribution_mode=str(payload["contribution_mode"]),
+            savings_rate=_parse_float(payload, "savings_rate"),
+            fixed_annual_contribution=_parse_float(payload, "fixed_annual_contribution"),
+            inflation_rate=_parse_float(payload, "inflation_rate"),
+            traditional_return_rate=_parse_float(payload, "traditional_return_rate"),
+            roth_return_rate=_parse_float(payload, "roth_return_rate"),
+            brokerage_return_rate=_parse_float(payload, "brokerage_return_rate"),
+            retirement_spend_rate=_parse_float(payload, "retirement_spend_rate"),
+            desired_swr=_parse_float(payload, "desired_swr"),
+            traditional_retirement_tax_rate=_parse_float(payload, "traditional_retirement_tax_rate"),
+            brokerage_retirement_tax_rate=_parse_float(payload, "brokerage_retirement_tax_rate"),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValidationError("Please enter valid numeric inputs for all required fields.") from exc
             traditional_assets=float(payload["traditional_assets"]),
             roth_assets=float(payload["roth_assets"]),
             brokerage_assets=float(payload["brokerage_assets"]),
@@ -75,6 +116,20 @@ def parse_inputs(payload: dict) -> RetirementInputs:
         raise ValidationError("Retirement age must be greater than current age.")
     if data.annual_income <= 0:
         raise ValidationError("Annual income must be greater than 0.")
+
+    if data.contribution_mode not in {"percent", "fixed"}:
+        raise ValidationError("Contribution mode must be either percent or fixed.")
+
+    if data.contribution_mode == "percent":
+        if data.savings_rate <= 0:
+            raise ValidationError("Savings rate must be greater than 0 when using percent mode.")
+        if not isclose(data.fixed_annual_contribution, 0.0):
+            raise ValidationError("Fixed annual contribution must be 0 in percent mode.")
+    else:
+        if data.fixed_annual_contribution <= 0:
+            raise ValidationError("Fixed annual contribution must be greater than 0 in fixed mode.")
+        if not isclose(data.savings_rate, 0.0):
+            raise ValidationError("Savings rate must be 0 in fixed mode.")
     if data.fixed_annual_contribution < 0:
         raise ValidationError("Fixed annual contribution cannot be negative.")
 
@@ -82,6 +137,9 @@ def parse_inputs(payload: dict) -> RetirementInputs:
         "salary growth rate": data.salary_growth_rate,
         "savings rate": data.savings_rate,
         "inflation rate": data.inflation_rate,
+        "traditional pre-tax return rate": data.traditional_return_rate,
+        "roth pre-tax return rate": data.roth_return_rate,
+        "brokerage pre-tax return rate": data.brokerage_return_rate,
         "traditional return rate": data.traditional_return_rate,
         "roth return rate": data.roth_return_rate,
         "brokerage return rate": data.brokerage_return_rate,
@@ -122,6 +180,18 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
     weights = _safe_allocation_weights(trad_balance, roth_balance, brokerage_balance)
 
     ages = [data.current_age]
+    pre_tax_balances = [trad_balance + roth_balance + brokerage_balance]
+    post_tax_balances = [_after_tax_value(data, trad_balance, roth_balance, brokerage_balance)]
+
+    for i in range(1, years_to_retirement + 1):
+        percent_contribution = (income * savings_rate) if data.contribution_mode == "percent" else 0.0
+        fixed_contribution = (
+            data.fixed_annual_contribution + extra_fixed_contribution
+            if data.contribution_mode == "fixed"
+            else extra_fixed_contribution
+        )
+        total_contribution = percent_contribution + fixed_contribution
+
     balances = [trad_balance + roth_balance + brokerage_balance]
 
     for i in range(1, years_to_retirement + 1):
@@ -139,6 +209,21 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         brokerage_balance = brokerage_balance * (1 + brokerage_return) + brokerage_contrib
 
         ages.append(data.current_age + i)
+        pre_tax_balances.append(trad_balance + roth_balance + brokerage_balance)
+        post_tax_balances.append(_after_tax_value(data, trad_balance, roth_balance, brokerage_balance))
+
+        income *= 1 + growth_salary
+
+    starting_total_contribution = (
+        (data.annual_income * savings_rate if data.contribution_mode == "percent" else 0.0)
+        + (data.fixed_annual_contribution if data.contribution_mode == "fixed" else 0.0)
+        + extra_fixed_contribution
+    )
+
+    return {
+        "ages": ages,
+        "pre_tax_balances": pre_tax_balances,
+        "post_tax_balances": post_tax_balances,
         balances.append(trad_balance + roth_balance + brokerage_balance)
 
         income *= 1 + growth_salary
@@ -150,6 +235,13 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         "roth_balance": roth_balance,
         "brokerage_balance": brokerage_balance,
         "projected_income_at_retirement": income,
+        "starting_total_contribution": starting_total_contribution,
+    }
+
+
+def find_required_additional_contribution(data: RetirementInputs, target_nest_egg: float) -> float:
+    baseline_projection = run_projection(data, extra_fixed_contribution=0.0)
+    baseline_after_tax = baseline_projection["post_tax_balances"][-1]
         "starting_total_contribution": (
             (data.annual_income * savings_rate)
             + data.fixed_annual_contribution
@@ -178,13 +270,14 @@ def find_required_additional_contribution(data: RetirementInputs, target_nest_eg
     low = 0.0
     high = max(1_000.0, data.annual_income)
 
-    while after_tax_retirement_value(data, run_projection(data, high)) < target_nest_egg:
+    while run_projection(data, high)["post_tax_balances"][-1] < target_nest_egg:
         high *= 2
         if high > 10_000_000:
             return high
 
     for _ in range(60):
         mid = (low + high) / 2
+        value_mid = run_projection(data, mid)["post_tax_balances"][-1]
         value_mid = after_tax_retirement_value(data, run_projection(data, mid))
         if value_mid >= target_nest_egg:
             high = mid
@@ -201,6 +294,8 @@ def calculate_projection(data: RetirementInputs) -> dict:
     desired_swr = _to_decimal(data.desired_swr)
 
     projection = run_projection(data, extra_fixed_contribution=0.0)
+    future_portfolio_pre_tax = projection["pre_tax_balances"][-1]
+    future_portfolio_after_tax = projection["post_tax_balances"][-1]
     future_portfolio_pre_tax = projection["balances"][-1]
     future_portfolio_after_tax = after_tax_retirement_value(data, projection)
 
@@ -230,6 +325,69 @@ def calculate_projection(data: RetirementInputs) -> dict:
         else 0.0
     )
 
+    goal_line = [target_nest_egg for _ in projection["ages"]]
+
+    return {
+        "ages": projection["ages"],
+        "post_tax_balances": projection["post_tax_balances"],
+        "goal_line": goal_line,
+        "stats": {
+            "future_value_pre_tax_at_retirement": {
+                "actual": future_portfolio_pre_tax,
+                "goal": None,
+            },
+            "future_value_after_tax_at_retirement": {
+                "actual": future_portfolio_after_tax,
+                "goal": target_nest_egg,
+            },
+            "traditional_balance_at_retirement": {
+                "actual": projection["traditional_balance"],
+                "goal": None,
+            },
+            "roth_balance_at_retirement": {
+                "actual": projection["roth_balance"],
+                "goal": None,
+            },
+            "brokerage_balance_at_retirement": {
+                "actual": projection["brokerage_balance"],
+                "goal": None,
+            },
+            "projected_income_at_retirement": {
+                "actual": projection["projected_income_at_retirement"],
+                "goal": None,
+            },
+            "first_year_retirement_spending": {
+                "actual": first_year_retirement_spending,
+                "goal": None,
+            },
+            "target_nest_egg": {
+                "actual": target_nest_egg,
+                "goal": target_nest_egg,
+            },
+            "actual_withdrawal_rate": {
+                "actual": actual_withdrawal_rate * 100,
+                "goal": data.desired_swr,
+            },
+            "yearly_savings_goal": {
+                "actual": projection["starting_total_contribution"],
+                "goal": required_yearly_savings,
+            },
+            "monthly_savings_goal": {
+                "actual": projection["starting_total_contribution"] / 12,
+                "goal": required_yearly_savings / 12,
+            },
+            "additional_yearly_savings_needed": {
+                "actual": additional_required,
+                "goal": 0.0,
+            },
+            "yearly_salary_at_retirement": {
+                "actual": yearly_salary_at_retirement,
+                "goal": first_year_retirement_spending,
+            },
+            "retirement_goal_achieved_pct": {
+                "actual": retirement_goal_achieved_pct,
+                "goal": 100.0,
+            },
     return {
         "ages": projection["ages"],
         "balances": projection["balances"],
