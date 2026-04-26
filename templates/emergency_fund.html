@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emergency Fund Calculator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <main class="app-shell emergency-shell">
+      <section class="panel emergency-panel">
+        <div class="panel-top-card">
+          <h1>Emergency Fund Calculator</h1>
+          <p class="subtitle">Track essential expenses and compare your current cash reserve to 3, 6, 9, and 12-month targets.</p>
+          <div class="actions actions-top">
+            <button id="add-row-btn" type="button" class="secondary-btn">Add Expense Row</button>
+            <button id="calculate-emergency-btn" type="button">Calculate</button>
+            <a class="secondary-btn app-link-inline" href="{{ url_for('index') }}">Back to Dashboard</a>
+          </div>
+        </div>
+
+        <p id="emergency-error" class="error" role="alert" aria-live="polite"></p>
+
+        <div class="table-wrapper">
+          <table id="emergency-table">
+            <thead>
+              <tr>
+                <th>Include</th>
+                <th>Expense Class</th>
+                <th>Name</th>
+                <th>Weekly ($)</th>
+                <th>Monthly ($)</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <section class="panel emergency-controls">
+          <label for="current_fund_amount">
+            Current emergency fund amount ($)
+            <input id="current_fund_amount" type="number" step="0.01" min="0" value="5000" />
+          </label>
+        </section>
+      </section>
+
+      <section class="results-panel">
+        <section class="summary-grid" id="emergency-summary-grid">
+          <article class="summary-card">
+            <p class="summary-label">Monthly essentials</p>
+            <p id="monthly-total" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Current coverage</p>
+            <p id="coverage-months" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Health status</p>
+            <p id="health-status" class="summary-value">—</p>
+          </article>
+        </section>
+
+        <section class="panel">
+          <h2>Emergency Fund Targets</h2>
+          <canvas id="emergencyChart"></canvas>
+        </section>
+
+        <section class="panel">
+          <h2>Projection Breakdown</h2>
+          <table id="projection-table">
+            <thead>
+              <tr>
+                <th>Timeframe</th>
+                <th>Target ($)</th>
+                <th>Gap/Surplus ($)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='emergency_fund.js', v=static_version) }}"></script>
+  </body>
+</html>

@@ -581,3 +581,75 @@ body.dark-mode .summary-card.status-low {
 body.dark-mode .summary-label {
   color: #dbe4f5;
 }
+
+.dashboard-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-hero {
+  padding: 1.2rem;
+}
+
+.app-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.app-card {
+  padding: 1rem;
+}
+
+.app-link,
+.app-link-inline {
+  display: inline-block;
+  margin-top: 0.65rem;
+  text-decoration: none;
+}
+
+.app-shell {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(560px, 1.3fr) 1fr;
+  gap: 1rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+#emergency-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+#emergency-table th,
+#emergency-table td,
+#projection-table th,
+#projection-table td {
+  border: 1px solid var(--table-border);
+  padding: 0.5rem;
+  text-align: left;
+}
+
+#emergency-table input[type="text"],
+#emergency-table input[type="number"] {
+  width: 100%;
+}
+
+.emergency-controls {
+  margin-top: 1rem;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+}
