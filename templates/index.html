@@ -146,20 +146,25 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Portfolio Over Time (Post-Tax)</h2>
-            <div class="viz-controls" role="group" aria-label="Chart view mode">
-              <button type="button" class="viz-toggle is-active" data-chart-mode="balance">Balance</button>
-              <button type="button" class="viz-toggle" data-chart-mode="gap">Goal gap</button>
-              <button type="button" class="viz-toggle" data-chart-mode="progress">Goal progress %</button>
+            <div class="chart-controls-stack">
+              <button
+                type="button"
+                id="goal-mode-toggle"
+                class="goal-mode-toggle"
+                role="switch"
+                aria-label="Goal mode"
+                aria-checked="false"
+              >
+                Static
+              </button>
+              <div class="viz-controls" role="group" aria-label="Chart view mode">
+                <button type="button" class="viz-toggle is-active" data-chart-mode="balance">Balance</button>
+                <button type="button" class="viz-toggle" data-chart-mode="gap">Goal gap</button>
+                <button type="button" class="viz-toggle" data-chart-mode="progress">Goal progress %</button>
+              </div>
             </div>
           </div>
           <canvas id="portfolioChart"></canvas>
-        </section>
-
-        <section class="panel">
-          <h2>Suggested Improvements</h2>
-          <ul id="suggestions-list" class="suggestions-list">
-            <li>Run a calculation to generate personalized capability and charting suggestions.</li>
-          </ul>
         </section>
 
         <section class="panel">

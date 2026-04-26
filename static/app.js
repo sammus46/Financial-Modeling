@@ -7,21 +7,23 @@ const targetValueEl = document.getElementById("target-value");
 const goalCardEl = document.getElementById("goal-card");
 const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
-const suggestionsListEl = document.getElementById("suggestions-list");
 const submitButton = document.getElementById("calculate-btn");
 const themeToggleButton = document.getElementById("theme-toggle");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
 const inputsPanel = document.querySelector(".inputs-panel");
 const chartModeButtons = document.querySelectorAll("[data-chart-mode]");
+const goalModeToggleButton = document.getElementById("goal-mode-toggle");
 
 let savingsRateInput;
 let fixedContributionInput;
 let portfolioChart;
 let latestChartData = null;
 let selectedChartMode = "balance";
+let selectedGoalMode = "static";
 
 const THEME_KEY = "retirement-theme";
 const FORM_VALUES_KEY = "retirement-form-values-v1";
+const GOAL_MODE_KEY = "retirement-goal-mode-v1";
 
 const DEBUG_PREFIX = "[retirement-ui]";
 
@@ -95,7 +97,7 @@ function setTheme(mode) {
   localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
 
   if (latestChartData) {
-    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine);
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
   }
 }
 
@@ -147,7 +149,7 @@ function getMetricStatus(key, actual, goal) {
   return "status-low";
 }
 
-function renderChart(ages, postTaxBalances, goalLine) {
+function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
   if (typeof Chart === "undefined") {
     logDebug("Chart.js is unavailable on window; skipping chart render.");
     return;
@@ -163,14 +165,17 @@ function renderChart(ages, postTaxBalances, goalLine) {
     points: ages.length,
     balances: postTaxBalances.length,
     goals: goalLine.length,
+    dynamicGoals: dynamicGoalLine.length,
   });
 
   const theme = getChartTheme();
+  const selectedGoalLine = selectedGoalMode === "dynamic" ? dynamicGoalLine : goalLine;
+  const goalSeriesLabel = selectedGoalMode === "dynamic" ? "Dynamic Goal" : "Retirement Goal";
   const chartSeries =
     selectedChartMode === "gap"
-      ? postTaxBalances.map((value, index) => value - goalLine[index])
+      ? postTaxBalances.map((value, index) => value - selectedGoalLine[index])
       : selectedChartMode === "progress"
-        ? postTaxBalances.map((value, index) => (goalLine[index] > 0 ? (value / goalLine[index]) * 100 : 0))
+        ? postTaxBalances.map((value, index) => (selectedGoalLine[index] > 0 ? (value / selectedGoalLine[index]) * 100 : 0))
         : postTaxBalances;
   const chartLabel =
     selectedChartMode === "gap"
@@ -210,14 +215,18 @@ function renderChart(ages, postTaxBalances, goalLine) {
           pointHoverRadius: 4,
         },
         {
-          label: "Retirement Goal",
           data:
-            selectedChartMode === "gap" ? goalLine.map(() => 0) : selectedChartMode === "progress" ? goalLine.map(() => 100) : goalLine,
+            selectedChartMode === "gap"
+              ? selectedGoalLine.map(() => 0)
+              : selectedChartMode === "progress"
+                ? selectedGoalLine.map(() => 100)
+                : selectedGoalLine,
           borderColor: theme.goalLine,
           borderDash: [8, 6],
           tension: 0,
           pointRadius: 0,
           borderWidth: 2,
+          label: goalSeriesLabel,
         },
       ],
     },
@@ -287,7 +296,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
               if (context.dataset.label !== "Portfolio Value (Post-Tax)") {
                 return "";
               }
-              const goalValue = goalLine[context.dataIndex] || 0;
+              const goalValue = selectedGoalLine[context.dataIndex] || 0;
               const gap = context.parsed.y - goalValue;
               const direction = gap >= 0 ? "Ahead" : "Behind";
               return ` ${direction} goal by ${currency(Math.abs(gap))}`;
@@ -298,7 +307,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
     },
   });
 
-  latestChartData = { ages, postTaxBalances, goalLine };
+  latestChartData = { ages, postTaxBalances, goalLine, dynamicGoalLine };
 }
 
 function setChartMode(mode) {
@@ -310,7 +319,26 @@ function setChartMode(mode) {
   });
 
   if (latestChartData) {
-    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine);
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
+  }
+}
+
+function applyGoalModeToggleUi() {
+  if (!goalModeToggleButton) {
+    return;
+  }
+  const isDynamic = selectedGoalMode === "dynamic";
+  goalModeToggleButton.classList.toggle("is-dynamic", isDynamic);
+  goalModeToggleButton.textContent = isDynamic ? "Dynamic" : "Static";
+  goalModeToggleButton.setAttribute("aria-checked", String(isDynamic));
+}
+
+function setGoalMode(mode) {
+  selectedGoalMode = mode === "dynamic" ? "dynamic" : "static";
+  localStorage.setItem(GOAL_MODE_KEY, selectedGoalMode);
+  applyGoalModeToggleUi();
+  if (latestChartData) {
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
   }
 }
 
@@ -376,44 +404,6 @@ function renderSummary(stats) {
     card.classList.remove("status-good", "status-mid", "status-low");
     card.classList.add(statusClass);
   });
-}
-
-function renderSuggestions(stats, insights) {
-  if (!suggestionsListEl) {
-    return;
-  }
-
-  const suggestions = [];
-  const goalPct = Number(stats.retirement_goal_achieved_pct.actual || 0);
-  const extraContribution = Number(insights?.required_additional_annual_contribution || 0);
-  const neededSavingsRate = Number(insights?.estimated_savings_rate_needed_pct || 0);
-  const withdrawalRate = Number(stats.actual_withdrawal_rate.actual || 0);
-  const desiredSwr = Number(stats.actual_withdrawal_rate.goal || 0);
-
-  if (goalPct < 100) {
-    suggestions.push(
-      `To close your goal gap, consider adding about ${currency(extraContribution)} more per year (total annual saving ~${currency(
-        Number(insights?.total_annual_contribution_needed || 0),
-      )}, about ${neededSavingsRate.toFixed(1)}% of current income).`,
-    );
-  } else {
-    suggestions.push("You are on track for your target. Consider stress testing with lower return assumptions.");
-  }
-
-  if (withdrawalRate > desiredSwr) {
-    suggestions.push(
-      `Your projected withdrawal rate (${percent(withdrawalRate)}) is above your desired SWR (${percent(
-        desiredSwr,
-      )}); consider a later retirement age or higher annual contributions.`,
-    );
-  } else {
-    suggestions.push("Your withdrawal rate is within your desired SWR range in this base case.");
-  }
-
-  suggestions.push("Use the new “Goal progress %” chart mode to see exactly when your plan crosses 100% of goal.");
-  suggestions.push("Compare Balance, Goal gap, and Goal progress % together to validate both path and destination.");
-
-  suggestionsListEl.innerHTML = suggestions.map((item) => `<li>${item}</li>`).join("");
 }
 
 function syncContributionMode() {
@@ -619,10 +609,9 @@ async function handleSubmit(event) {
       hasStats: Boolean(data.stats),
     });
 
-    renderChart(data.ages, data.post_tax_balances, data.goal_line);
+    renderChart(data.ages, data.post_tax_balances, data.goal_line, data.dynamic_goal_line || data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);
-    renderSuggestions(data.stats, data.insights);
     saveFormValues();
   } catch (_error) {
     logDebug("Unhandled error during calculate flow.", _error);
@@ -680,6 +669,7 @@ if (themeToggleButton) {
 }
 
 initializeTheme();
+setGoalMode(localStorage.getItem(GOAL_MODE_KEY) || "static");
 if (inputsPanel) {
   inputsPanel.addEventListener("scroll", () => {
     inputsPanel.classList.toggle("scrolled", inputsPanel.scrollTop > 8);
@@ -689,4 +679,9 @@ chartModeButtons.forEach((button) => {
   button.addEventListener("click", () => setChartMode(button.dataset.chartMode));
   button.setAttribute("aria-pressed", button.dataset.chartMode === selectedChartMode ? "true" : "false");
 });
+if (goalModeToggleButton) {
+  goalModeToggleButton.addEventListener("click", () => {
+    setGoalMode(selectedGoalMode === "static" ? "dynamic" : "static");
+  });
+}
 form.dispatchEvent(new Event("submit"));
