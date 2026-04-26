@@ -76,6 +76,39 @@ Notes:
 - Ensure the Flask app is already running before executing the script.
 - The script uses `npx playwright screenshot`, so Node.js must be installed.
 
+## Merge conflict quick guide (Current vs Incoming vs Both)
+
+When Git asks you to pick **Current**, **Incoming**, or **Both**:
+
+- Choose **Current** if your branch has the newer/fixed version and incoming reverts it.
+- Choose **Incoming** if the incoming change is the newer/fixed version and yours is outdated.
+- Choose **Both** only if the edits are complementary and do not duplicate/break behavior.
+
+For this project’s recent UI/submit-flow changes, conflicts often touch the same lines in:
+- `static/app.js`
+- `templates/index.html`
+- `static/styles.css`
+- `README.md`
+
+Safe strategy:
+1. Prefer the version that keeps **currency normalization + submit validation + summary rendering + cache-busted assets**.
+2. If you pick **Both**, manually remove duplicate sections (common in `README.md` and UI markup).
+3. Run smoke test before finalizing:
+
+```bash
+python scripts/smoke_test.py
+```
+
+Practical default for recent conflicts in this repo:
+- `static/app.js`: usually **Incoming** (keeps latest submit/currency/safety logic).
+- `templates/index.html`: usually **Incoming** (keeps single canonical header/button + summary cards + cache-busted asset URLs).
+- `static/styles.css`: usually **Incoming** (latest sticky header + summary card/status styles).
+- `app.py`: usually **Both**, then dedupe carefully to keep:
+  - `_static_version` + `inject_static_version`
+  - `_parse_float` currency cleanup
+  - `/calculate` logging + validation handling
+- `README.md`: often **Both**, then manually remove duplicate headings/sections.
+
 ## Current assumptions
 
 This version keeps the model straightforward while adding a few practical levers:

@@ -1,4 +1,5 @@
-const form = document.getElementById("retirement-form");
+const forms = Array.from(document.querySelectorAll("#retirement-form"));
+const form = forms[0];
 const errorEl = document.getElementById("error");
 const statsBody = document.querySelector("#stats-table tbody");
 const goalProgressEl = document.getElementById("goal-progress");
@@ -11,8 +12,8 @@ const submitButton = document.getElementById("calculate-btn");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
 const submitButton = form.querySelector('button[type="submit"]');
 
-const savingsRateInput = form.elements["savings_rate"];
-const fixedContributionInput = form.elements["fixed_annual_contribution"];
+let savingsRateInput;
+let fixedContributionInput;
 
 let portfolioChart;
 const DEBUG_PREFIX = "[retirement-ui]";
