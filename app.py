@@ -2,10 +2,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isclose
+from pathlib import Path
+import re
 
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
+HEADER_BLOCK = """<div class=\"panel-top\">
+            <h1>Retirement Calculator</h1>
+            <p class=\"subtitle\">Configure assumptions, then compare actual vs goal outcomes.</p>
+            <div class=\"actions actions-top\">
+              <button id=\"calculate-btn\" type=\"submit\">Calculate</button>
+            </div>
+          </div>"""
+HEADER_BLOCK_PATTERN = re.compile(
+    r"<div class=\"panel-top\">\s*"
+    r"<h1>Retirement Calculator</h1>\s*"
+    r"<p class=\"subtitle\">Configure assumptions, then compare actual vs goal outcomes\.</p>\s*"
+    r"<div class=\"actions actions-top\">\s*"
+    r"<button id=\"calculate-btn\" type=\"submit\">Calculate</button>\s*"
+    r"</div>\s*"
+    r"</div>",
+    re.DOTALL,
+)
 
 
 @dataclass
@@ -34,14 +53,55 @@ class ValidationError(ValueError):
     """Raised for invalid user input."""
 
 
+def _static_version() -> int:
+    static_dir = Path(app.root_path) / "static"
+    tracked = ["styles.css", "app.js"]
+    mtimes = []
+    for filename in tracked:
+        file_path = static_dir / filename
+        if file_path.exists():
+            mtimes.append(int(file_path.stat().st_mtime))
+    return max(mtimes) if mtimes else 1
+
+
+@app.context_processor
+def inject_static_version() -> dict:
+    return {"static_version": _static_version()}
+
+
 def _to_decimal(percent: float) -> float:
     return percent / 100.0
+
+
+def _dedupe_header_block(html: str) -> str:
+    regex_matches = list(HEADER_BLOCK_PATTERN.finditer(html))
+    if len(regex_matches) <= 1:
+        parts = html.split(HEADER_BLOCK)
+        if len(parts) <= 2:
+            return html
+        app.logger.warning("Detected duplicate exact header/calculate blocks in rendered HTML; deduping.")
+        return parts[0] + HEADER_BLOCK + "".join(parts[1:])
+
+    app.logger.warning("Detected duplicate header/calculate blocks in rendered HTML; deduping with regex.")
+    first_match = regex_matches[0]
+    deduped_html = html[: first_match.start()] + first_match.group(0) + html[first_match.end() :]
+    for match in regex_matches[1:]:
+        deduped_html = deduped_html.replace(match.group(0), "", 1)
+    if deduped_html.count('id="calculate-btn"') > 1:
+        app.logger.warning("Fallback dedupe on duplicate calculate button IDs.")
+        deduped_html = deduped_html.replace('id="calculate-btn"', 'id="calculate-btn-duplicate"', deduped_html.count('id="calculate-btn"') - 1)
+    if deduped_html.count('class="panel-top"') > 1:
+        app.logger.warning("Fallback dedupe on duplicate panel-top classes.")
+        deduped_html = deduped_html.replace('class="panel-top"', 'class="panel-top-duplicate"', deduped_html.count('class="panel-top"') - 1)
+    return deduped_html
 
 
 def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
     value = payload.get(key, default)
     if value is None or value == "":
         return default
+    if isinstance(value, str):
+        value = value.replace(",", "").replace("$", "").strip()
     return float(value)
 
 
@@ -331,19 +391,35 @@ def calculate_projection(data: RetirementInputs) -> dict:
 
 @app.route("/", methods=["GET"])
 def index() -> str:
-    return render_template("index.html")
+    rendered = render_template("index.html")
+    return _dedupe_header_block(rendered)
 
 
 @app.route("/calculate", methods=["POST"])
 def calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
+    app.logger.info(
+        "Calculate request received.",
+        extra={
+            "payload_keys": sorted(payload.keys()),
+            "contribution_mode": payload.get("contribution_mode"),
+        },
+    )
 
     try:
         data = parse_inputs(payload)
         result = calculate_projection(data)
     except ValidationError as exc:
+        app.logger.warning("Calculate validation error: %s", str(exc))
         return jsonify({"error": str(exc)}), 400
 
+    app.logger.info(
+        "Calculate response prepared.",
+        extra={
+            "ages_count": len(result.get("ages", [])),
+            "post_tax_count": len(result.get("post_tax_balances", [])),
+        },
+    )
     return jsonify(result), 200
 
 

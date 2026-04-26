@@ -4,8 +4,12 @@
 
 body {
   margin: 0;
-  background: #f8f9fa;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(80, 120, 255, 0.15) 0%, rgba(80, 120, 255, 0) 40%),
+    radial-gradient(circle at 85% 0%, rgba(20, 184, 166, 0.12) 0%, rgba(20, 184, 166, 0) 36%),
+    linear-gradient(180deg, #f5f8ff 0%, #eef3ff 100%);
   color: #212529;
+  padding-bottom: 2rem;
 }
 
 .app-layout {
@@ -25,9 +29,21 @@ body {
   max-height: calc(100vh - 1.5rem);
   overflow-y: auto;
   background: #fff;
-  border: 1px solid #dfe3e6;
-  border-radius: 10px;
-  padding: 1rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: 0 16px 36px rgba(23, 41, 86, 0.14);
+}
+
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  margin: -1.1rem -1.1rem 0;
+  padding: 1rem 1.1rem 0.75rem;
+  border-bottom: 1px solid #e7edf8;
+  box-shadow: 0 8px 18px rgba(30, 64, 175, 0.08);
 }
 
 .subtitle {
@@ -42,8 +58,8 @@ body {
 }
 
 .form-section {
-  border: 1px solid #eaecf0;
-  border-radius: 10px;
+  border: 1px solid #e8eef7;
+  border-radius: 12px;
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
@@ -53,6 +69,7 @@ body {
 .form-section h2 {
   margin: 0 0 0.25rem;
   font-size: 1rem;
+  color: #1f3f75;
 }
 
 label,
@@ -100,24 +117,60 @@ input {
   border-radius: 6px;
   padding: 0.45rem 0.55rem;
   box-sizing: border-box;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+input:disabled {
+  background: #f2f5f9;
+  color: #7a8697;
+  cursor: not-allowed;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input:focus-visible {
+  outline: none;
+  border-color: #4c7df5;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
 }
 
 .actions {
   margin-top: 0.25rem;
 }
 
+.actions-top {
+  margin-top: 0.75rem;
+}
+
 button {
   border: none;
-  background: #0d6efd;
+  background: linear-gradient(135deg, #2d6cf6 0%, #0d6efd 100%);
   color: white;
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  padding: 0.65rem 1.1rem;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 button:hover {
-  background: #0b5ed7;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(13, 110, 253, 0.3);
+}
+
+button:disabled {
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
 }
 
 .results-panel {
@@ -127,9 +180,62 @@ button:hover {
 .panel {
   margin-bottom: 1rem;
   background: #fff;
-  border: 1px solid #dfe3e6;
-  border-radius: 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
   padding: 1rem;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  padding: 0.75rem;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.summary-card.status-good {
+  background: #ecfdf3;
+  border-color: #abefc6;
+}
+.summary-card.status-good .summary-value {
+  color: #067647;
+}
+
+.summary-card.status-mid {
+  background: #fffaeb;
+  border-color: #fedf89;
+}
+.summary-card.status-mid .summary-value {
+  color: #b54708;
+}
+
+.summary-card.status-low {
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+.summary-card.status-low .summary-value {
+  color: #b42318;
+}
+
+.summary-label {
+  margin: 0;
+  color: #57606a;
+  font-size: 0.8rem;
+}
+
+.summary-value {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0b3a9c;
 }
 
 .error {
@@ -150,6 +256,10 @@ td {
   vertical-align: top;
 }
 
+tbody tr:nth-child(even) {
+  background: #f8fbff;
+}
+
 @media (max-width: 980px) {
   .app-layout {
     grid-template-columns: 1fr;
@@ -158,5 +268,17 @@ td {
   .inputs-panel {
     position: static;
     max-height: none;
+  }
+
+  .panel-top {
+    position: static;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
   }
 }
