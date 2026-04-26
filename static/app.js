@@ -734,11 +734,6 @@ if (themeToggleButton) {
 
 initializeTheme();
 setGoalMode(localStorage.getItem(GOAL_MODE_KEY) || "static");
-if (inputsPanel) {
-  inputsPanel.addEventListener("scroll", () => {
-    inputsPanel.classList.toggle("scrolled", inputsPanel.scrollTop > 8);
-  });
-}
 chartModeButtons.forEach((button) => {
   button.addEventListener("click", () => setChartMode(button.dataset.chartMode));
   button.setAttribute("aria-pressed", button.dataset.chartMode === selectedChartMode ? "true" : "false");
