@@ -294,7 +294,13 @@ def calculate_emergency_fund(
         else 0.0
     )
 
-    if coverage_ratio >= 1 and contribution_ratio >= 1:
+    strongest_ratio = max(coverage_ratio, contribution_ratio)
+
+    if strongest_ratio >= 1.5:
+        health_status = "Above Target (Excellent)"
+    elif strongest_ratio >= 1.2:
+        health_status = "Above Target (Strong)"
+    elif coverage_ratio >= 1 and contribution_ratio >= 1:
         health_status = "On Target"
     elif coverage_ratio >= 0.85 or contribution_ratio >= 0.85:
         health_status = "Improving"

@@ -531,8 +531,8 @@ function renderChart(projections) {
           borderColor: "#f59e0b",
           borderWidth: 2,
           tension: 0.25,
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          pointRadius: 0,
+          pointHoverRadius: 0,
           pointBackgroundColor: "#f59e0b",
           pointBorderColor: "#f59e0b",
         },
@@ -622,7 +622,7 @@ function renderChart(projections) {
 
 function renderSummary(result) {
   monthlyTotalEl.textContent = formatCurrency(result.total_monthly);
-  coverageMonthsEl.textContent = `${result.coverage_months.toFixed(2)} months (target: ${result.current_target_coverage_months.toFixed(1)})`;
+  coverageMonthsEl.textContent = `${result.coverage_months.toFixed(1)} months (target: ${result.current_target_coverage_months.toFixed(1)})`;
   healthStatusEl.textContent = result.health_status;
   applySummaryCardStatuses(result);
   renderProjectionRows(result.projections);
