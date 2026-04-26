@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isclose
 from pathlib import Path
-import re
 
 from flask import Flask, jsonify, render_template, request
 
@@ -15,16 +14,6 @@ HEADER_BLOCK = """<div class=\"panel-top\">
               <button id=\"calculate-btn\" type=\"submit\">Calculate</button>
             </div>
           </div>"""
-HEADER_BLOCK_PATTERN = re.compile(
-    r"<div class=\"panel-top\">\s*"
-    r"<h1>Retirement Calculator</h1>\s*"
-    r"<p class=\"subtitle\">Configure assumptions, then compare actual vs goal outcomes\.</p>\s*"
-    r"<div class=\"actions actions-top\">\s*"
-    r"<button id=\"calculate-btn\" type=\"submit\">Calculate</button>\s*"
-    r"</div>\s*"
-    r"</div>",
-    re.DOTALL,
-)
 
 
 @dataclass
@@ -74,26 +63,11 @@ def _to_decimal(percent: float) -> float:
 
 
 def _dedupe_header_block(html: str) -> str:
-    regex_matches = list(HEADER_BLOCK_PATTERN.finditer(html))
-    if len(regex_matches) <= 1:
-        parts = html.split(HEADER_BLOCK)
-        if len(parts) <= 2:
-            return html
-        app.logger.warning("Detected duplicate exact header/calculate blocks in rendered HTML; deduping.")
-        return parts[0] + HEADER_BLOCK + "".join(parts[1:])
-
-    app.logger.warning("Detected duplicate header/calculate blocks in rendered HTML; deduping with regex.")
-    first_match = regex_matches[0]
-    deduped_html = html[: first_match.start()] + first_match.group(0) + html[first_match.end() :]
-    for match in regex_matches[1:]:
-        deduped_html = deduped_html.replace(match.group(0), "", 1)
-    if deduped_html.count('id="calculate-btn"') > 1:
-        app.logger.warning("Fallback dedupe on duplicate calculate button IDs.")
-        deduped_html = deduped_html.replace('id="calculate-btn"', 'id="calculate-btn-duplicate"', deduped_html.count('id="calculate-btn"') - 1)
-    if deduped_html.count('class="panel-top"') > 1:
-        app.logger.warning("Fallback dedupe on duplicate panel-top classes.")
-        deduped_html = deduped_html.replace('class="panel-top"', 'class="panel-top-duplicate"', deduped_html.count('class="panel-top"') - 1)
-    return deduped_html
+    parts = html.split(HEADER_BLOCK)
+    if len(parts) <= 2:
+        return html
+    app.logger.warning("Detected duplicate header/calculate blocks in rendered HTML; deduping.")
+    return parts[0] + HEADER_BLOCK + "".join(parts[1:])
 
 
 def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
