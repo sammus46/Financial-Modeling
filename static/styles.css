@@ -21,6 +21,7 @@
   --grid-color: rgba(148, 163, 184, 0.22);
   --chart-balance-line: #2563eb;
   --chart-goal-line: #f59e0b;
+  --chart-crossover: #16a34a;
   --tooltip-bg: rgba(15, 23, 42, 0.92);
   --tooltip-border: rgba(148, 163, 184, 0.25);
 }
@@ -47,6 +48,7 @@ body.dark-mode {
   --grid-color: rgba(100, 116, 139, 0.35);
   --chart-balance-line: #60a5fa;
   --chart-goal-line: #fbbf24;
+  --chart-crossover: #4ade80;
   --tooltip-bg: rgba(2, 6, 23, 0.95);
   --tooltip-border: rgba(148, 163, 184, 0.4);
 }
