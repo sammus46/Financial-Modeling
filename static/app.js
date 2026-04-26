@@ -9,6 +9,7 @@ const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
 const submitButton = document.getElementById("calculate-btn");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
+const submitButton = form.querySelector('button[type="submit"]');
 
 const savingsRateInput = form.elements["savings_rate"];
 const fixedContributionInput = form.elements["fixed_annual_contribution"];
@@ -165,6 +166,9 @@ function renderSummary(stats) {
   goalProgressEl.textContent = formatMetricValue(
     "retirement_goal_achieved_pct",
     goalPct,
+  goalProgressEl.textContent = formatMetricValue(
+    "retirement_goal_achieved_pct",
+    stats.retirement_goal_achieved_pct.actual,
   );
   projectedValueEl.textContent = formatMetricValue(
     "future_value_after_tax_at_retirement",
@@ -276,6 +280,14 @@ async function handleSubmit(event) {
       postTaxBalances: data.post_tax_balances?.length || 0,
       hasStats: Boolean(data.stats),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorEl.textContent = data.error || "Unable to calculate results.";
+      return;
+    }
+
     renderChart(data.ages, data.post_tax_balances, data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);

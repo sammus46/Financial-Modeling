@@ -18,6 +18,22 @@
               <button id="calculate-btn" type="submit">Calculate</button>
             </div>
           </div>
+        <div class="panel-top">
+          <h1>Retirement Calculator</h1>
+          <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
+          <div class="actions actions-top">
+            <button type="submit" form="retirement-form">Calculate</button>
+          </div>
+        </div>
+
+        <form id="retirement-form" class="input-grid">
+        <div class="panel-top">
+          <h1>Retirement Calculator</h1>
+          <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
+          <div class="actions actions-top">
+            <button id="calculate-btn" type="submit">Calculate</button>
+          </div>
+        </div>
           <section class="form-section">
             <h2>Personal Characteristics</h2>
             <label>
@@ -126,6 +142,15 @@
             <p id="projected-value" class="summary-value">—</p>
           </article>
           <article class="summary-card" id="target-card">
+          <article class="summary-card">
+            <p class="summary-label">Goal progress</p>
+            <p id="goal-progress" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Projected post-tax value</p>
+            <p id="projected-value" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
             <p class="summary-label">Target nest egg</p>
             <p id="target-value" class="summary-value">—</p>
           </article>
