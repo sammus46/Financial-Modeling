@@ -109,6 +109,16 @@ Practical default for recent conflicts in this repo:
   - `/calculate` logging + validation handling
 - `README.md`: often **Both**, then manually remove duplicate headings/sections.
 
+Conflict resolution map for files changed in recent PRs:
+- `CALCULATE_BUTTON_DEBUG_REPORT.md` → **Incoming** (doc-only, latest checklist).
+- `README.md` → **Both** then manual dedupe.
+- `app.py` → **Both** then manual dedupe.
+- `scripts/capture_screenshot.sh` → **Incoming**.
+- `scripts/smoke_test.py` → **Incoming**.
+- `static/app.js` → **Incoming**.
+- `static/styles.css` → **Incoming**.
+- `templates/index.html` → **Incoming**.
+
 ## Current assumptions
 
 This version keeps the model straightforward while adding a few practical levers:
