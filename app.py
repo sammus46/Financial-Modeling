@@ -199,7 +199,7 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     return data
 
 
-def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float, float, int]:
+def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float, float, int, float, float]:
     expenses_payload = payload.get("expenses")
     if not isinstance(expenses_payload, list):
         raise ValidationError("Expenses must be provided as a list.")
@@ -243,7 +243,22 @@ def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], 
     if contribution_months < 0:
         raise ValidationError("Contribution months cannot be negative.")
 
-    return included, current_fund_amount, monthly_contribution_amount, contribution_months
+    current_target_coverage_months = _parse_float(payload, "current_target_coverage_months", default=6.0)
+    if current_target_coverage_months < 0:
+        raise ValidationError("Current target coverage months cannot be negative.")
+
+    contribution_target_coverage_months = _parse_float(payload, "contribution_target_coverage_months", default=6.0)
+    if contribution_target_coverage_months < 0:
+        raise ValidationError("Contribution target coverage months cannot be negative.")
+
+    return (
+        included,
+        current_fund_amount,
+        monthly_contribution_amount,
+        contribution_months,
+        current_target_coverage_months,
+        contribution_target_coverage_months,
+    )
 
 
 def calculate_emergency_fund(
@@ -251,28 +266,48 @@ def calculate_emergency_fund(
     current_fund_amount: float,
     monthly_contribution_amount: float,
     contribution_months: int,
+    current_target_coverage_months: float,
+    contribution_target_coverage_months: float,
 ) -> dict:
     monthly_amounts = [_to_monthly_amount(expense.weekly_amount, expense.monthly_amount) for expense in expenses]
     total_monthly = sum(monthly_amounts)
     total_weekly = sum(monthly / 52 * 12 for monthly in monthly_amounts)
 
-    projections = [
-        {
-            "months": months,
-            "target": total_monthly * months,
-            "projected_fund": current_fund_amount + monthly_contribution_amount * min(months, contribution_months),
-        }
-        for months in range(3, 25, 3)
-    ]
+    projections = []
+    previous_contributed_months = 0
+    for months in range(3, 25, 3):
+        contributed_months = min(months, contribution_months)
+        period_contributed_months = max(contributed_months - previous_contributed_months, 0)
+        contributions_for_period = monthly_contribution_amount * period_contributed_months
+        projections.append(
+            {
+                "months": months,
+                "target": total_monthly * months,
+                "projected_fund": current_fund_amount + monthly_contribution_amount * contributed_months,
+                "contributions_for_period": contributions_for_period,
+            }
+        )
+        previous_contributed_months = contributed_months
+
     coverage_months = (current_fund_amount / total_monthly) if total_monthly > 0 else 0.0
-    if coverage_months < 3:
-        health_status = "At Risk"
-    elif coverage_months < 6:
+    coverage_ratio = (coverage_months / current_target_coverage_months) if current_target_coverage_months > 0 else 0.0
+    contribution_horizon_months = min(max(contribution_months, 0), 24)
+    projected_horizon_fund = current_fund_amount + monthly_contribution_amount * contribution_horizon_months
+    projected_horizon_coverage = (projected_horizon_fund / total_monthly) if total_monthly > 0 else 0.0
+    contribution_ratio = (
+        projected_horizon_coverage / contribution_target_coverage_months
+        if contribution_target_coverage_months > 0
+        else 0.0
+    )
+
+    if coverage_ratio >= 1 and contribution_ratio >= 1:
+        health_status = "On Target"
+    elif coverage_ratio >= 0.85 or contribution_ratio >= 0.85:
         health_status = "Improving"
-    elif coverage_months < 9:
-        health_status = "Healthy"
+    elif coverage_ratio >= 0.6 or contribution_ratio >= 0.6:
+        health_status = "Needs Attention"
     else:
-        health_status = "Strong"
+        health_status = "At Risk"
 
     return {
         "total_weekly": total_weekly,
@@ -282,6 +317,9 @@ def calculate_emergency_fund(
         "projections": projections,
         "monthly_contribution_amount": monthly_contribution_amount,
         "contribution_months": contribution_months,
+        "current_target_coverage_months": current_target_coverage_months,
+        "contribution_target_coverage_months": contribution_target_coverage_months,
+        "projected_horizon_coverage_months": projected_horizon_coverage,
     }
 
 
@@ -567,8 +605,22 @@ def calculate_retirement() -> tuple:
 def emergency_fund_calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
     try:
-        expenses, current_fund_amount, monthly_contribution_amount, contribution_months = parse_emergency_fund_inputs(payload)
-        result = calculate_emergency_fund(expenses, current_fund_amount, monthly_contribution_amount, contribution_months)
+        (
+            expenses,
+            current_fund_amount,
+            monthly_contribution_amount,
+            contribution_months,
+            current_target_coverage_months,
+            contribution_target_coverage_months,
+        ) = parse_emergency_fund_inputs(payload)
+        result = calculate_emergency_fund(
+            expenses,
+            current_fund_amount,
+            monthly_contribution_amount,
+            contribution_months,
+            current_target_coverage_months,
+            contribution_target_coverage_months,
+        )
     except ValidationError as exc:
         return jsonify({"error": str(exc)}), 400
 

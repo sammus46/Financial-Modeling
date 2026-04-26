@@ -53,14 +53,26 @@
         </div>
 
         <section class="panel emergency-controls">
-          <label for="current_fund_amount">
-            Current emergency fund amount ($)
-            <input id="current_fund_amount" type="text" inputmode="decimal" value="$5,000" />
-          </label>
-          <label for="monthly_contribution_amount">
-            Monthly contribution amount ($)
-            <input id="monthly_contribution_amount" type="text" inputmode="decimal" value="$0" />
-          </label>
+          <div class="control-card">
+            <label for="current_fund_amount">
+              Current emergency fund amount ($)
+              <input id="current_fund_amount" type="text" inputmode="decimal" value="$5,000" />
+            </label>
+            <label for="current_target_coverage_months">
+              Target coverage (months)
+              <input id="current_target_coverage_months" type="number" min="0" step="0.5" value="6" />
+            </label>
+          </div>
+          <div class="control-card">
+            <label for="monthly_contribution_amount">
+              Monthly contribution amount ($)
+              <input id="monthly_contribution_amount" type="text" inputmode="decimal" value="$0" />
+            </label>
+            <label for="contribution_target_coverage_months">
+              Target coverage after contributions (months)
+              <input id="contribution_target_coverage_months" type="number" min="0" step="0.5" value="6" />
+            </label>
+          </div>
           <label for="contribution_months">
             Contribution months
             <input id="contribution_months" type="number" min="0" step="1" value="0" />
@@ -68,10 +80,8 @@
         </section>
 
         <section class="panel emergency-notes-card">
-          <label for="emergency_notes">
-            Notes
-            <textarea id="emergency_notes" rows="4" placeholder="Add planning notes, reminders, or assumptions..."></textarea>
-          </label>
+          <h2>Notes by expense</h2>
+          <div id="expense-notes-list" class="expense-notes-list"></div>
         </section>
       </section>
 
