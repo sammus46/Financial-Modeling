@@ -8,8 +8,9 @@ const targetValueEl = document.getElementById("target-value");
 const goalCardEl = document.getElementById("goal-card");
 const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
-const submitButton = form?.querySelector("#calculate-btn") || document.getElementById("calculate-btn");
-const currencyInputs = form ? form.querySelectorAll('input[data-currency="true"]') : [];
+const submitButton = document.getElementById("calculate-btn");
+const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
+const submitButton = form.querySelector('button[type="submit"]');
 
 let savingsRateInput;
 let fixedContributionInput;
@@ -24,28 +25,6 @@ function logDebug(message, details) {
   }
   console.log(`${DEBUG_PREFIX} ${message}`);
 }
-
-if (!form) {
-  throw new Error("Unable to initialize app: #retirement-form not found.");
-}
-
-if (forms.length > 1) {
-  logDebug("Detected duplicate #retirement-form nodes from a bad merge; removing extras.", { forms: forms.length });
-  forms.slice(1).forEach((duplicateForm) => duplicateForm.remove());
-}
-
-const panelTops = form.querySelectorAll(".panel-top");
-if (panelTops.length > 1) {
-  logDebug("Detected duplicate header/button blocks; removing extras.", { panelTops: panelTops.length });
-  panelTops.forEach((panel, index) => {
-    if (index > 0) {
-      panel.remove();
-    }
-  });
-}
-
-savingsRateInput = form.elements["savings_rate"];
-fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 const currency = (value) =>
   new Intl.NumberFormat("en-US", {
@@ -188,6 +167,9 @@ function renderSummary(stats) {
   goalProgressEl.textContent = formatMetricValue(
     "retirement_goal_achieved_pct",
     goalPct,
+  goalProgressEl.textContent = formatMetricValue(
+    "retirement_goal_achieved_pct",
+    stats.retirement_goal_achieved_pct.actual,
   );
   projectedValueEl.textContent = formatMetricValue(
     "future_value_after_tax_at_retirement",
@@ -299,6 +281,14 @@ async function handleSubmit(event) {
       postTaxBalances: data.post_tax_balances?.length || 0,
       hasStats: Boolean(data.stats),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorEl.textContent = data.error || "Unable to calculate results.";
+      return;
+    }
+
     renderChart(data.ages, data.post_tax_balances, data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);
