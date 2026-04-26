@@ -114,6 +114,34 @@ function formatMetricValue(metricKey, value) {
   return currency(Number(value));
 }
 
+function getMetricStatus(key, actual, goal) {
+  const actualValue = Number(actual);
+  const goalValue = Number(goal);
+
+  if (!Number.isFinite(actualValue) || !Number.isFinite(goalValue)) {
+    return "";
+  }
+
+  const lowerIsBetterMetrics = new Set(["actual_withdrawal_rate"]);
+  const lowerIsBetter = lowerIsBetterMetrics.has(key);
+
+  if (goalValue === 0) {
+    if (lowerIsBetter) {
+      return actualValue === 0 ? "status-good" : "status-low";
+    }
+    return actualValue > 0 ? "status-good" : "status-low";
+  }
+
+  const progressRatio = lowerIsBetter ? goalValue / Math.max(actualValue, Number.EPSILON) : actualValue / goalValue;
+  if (progressRatio >= 1) {
+    return "status-good";
+  }
+  if (progressRatio >= 0.75) {
+    return "status-mid";
+  }
+  return "status-low";
+}
+
 function renderChart(ages, postTaxBalances, goalLine) {
   if (typeof Chart === "undefined") {
     logDebug("Chart.js is unavailable on window; skipping chart render.");
@@ -264,9 +292,10 @@ function renderStats(stats) {
   statsBody.innerHTML = orderedKeys
     .map((key) => {
       const row = stats[key];
+      const status = getMetricStatus(key, row.actual, row.goal);
       return `<tr>
         <td>${metricLabels[key]}</td>
-        <td>${formatMetricValue(key, row.actual)}</td>
+        <td class="metric-actual ${status}">${formatMetricValue(key, row.actual)}</td>
         <td>${formatMetricValue(key, row.goal)}</td>
       </tr>`;
     })
