@@ -715,6 +715,10 @@ body.dark-mode .summary-label {
   text-align: left;
 }
 
+#emergency-table th {
+  text-align: center;
+}
+
 #emergency-table input[type="text"],
 #emergency-table input[type="number"] {
   width: 100%;
@@ -740,6 +744,51 @@ body.dark-mode .summary-label {
   font-size: 1.15rem;
 }
 
+#emergency-table .row-move-btn {
+  min-width: 2.05rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 10px;
+  line-height: 1;
+  font-size: 0.95rem;
+}
+
+#emergency-table .row-remove-btn:hover {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+body.dark-mode #emergency-table .row-remove-btn:hover {
+  background: #4a1b1f;
+  color: #fecaca;
+}
+
+#emergency-table td:last-child {
+  white-space: nowrap;
+}
+
+#emergency-table .totals-row td {
+  font-weight: 700;
+  background: color-mix(in oklab, var(--card-bg) 78%, #94a3b8 22%);
+}
+
+#projection-table td.gap-positive {
+  color: #067647;
+  font-weight: 650;
+}
+
+#projection-table td.gap-negative {
+  color: #b42318;
+  font-weight: 650;
+}
+
+body.dark-mode #projection-table td.gap-positive {
+  color: #6ce9b6;
+}
+
+body.dark-mode #projection-table td.gap-negative {
+  color: #fda29b;
+}
+
 .emergency-table-actions {
   margin-top: 0.55rem;
 }
@@ -750,6 +799,10 @@ body.dark-mode .summary-label {
 
 .emergency-controls {
   margin-top: 1rem;
+}
+
+.emergency-controls input {
+  max-width: 16rem;
 }
 
 .tool-back-btn {

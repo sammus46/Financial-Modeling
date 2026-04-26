@@ -12,9 +12,12 @@ const healthCardEl = document.getElementById("emergency-health-card");
 const projectionTableBody = document.querySelector("#projection-table tbody");
 const currentFundInput = document.getElementById("current_fund_amount");
 const emergencyNotesInput = document.getElementById("emergency_notes");
+const totalWeeklyEl = document.getElementById("table-total-weekly");
+const totalMonthlyEl = document.getElementById("table-total-monthly");
 
 let emergencyChart;
 let saveTimeoutId;
+let latestProjectionData = null;
 
 const DEFAULT_ROWS = [
   { expense_class: "Weekly Necessities", name: "Groceries", weekly_amount: "", monthly_amount: 900, enabled: true, active_period: "monthly" },
@@ -25,7 +28,7 @@ const DEFAULT_ROWS = [
 ];
 const DEFAULT_NOTES = "";
 const STORAGE_KEY = "emergency-fund-form-v2";
-const THEME_KEY = "emergency-theme";
+const THEME_KEY = "financial-modeling-theme";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-US", {
@@ -35,16 +38,30 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function parseCurrencyInput(value) {
+  const numeric = String(value ?? "").replace(/[^0-9.]/g, "");
+  return numeric === "" ? "" : numeric;
+}
+
+function formatCurrencyInput(value) {
+  const numeric = parseCurrencyInput(value);
+  if (numeric === "") {
+    return "";
+  }
+  const [whole, decimal] = numeric.split(".");
+  const withCommas = Number(whole || 0).toLocaleString("en-US");
+  if (decimal !== undefined) {
+    return `$${withCommas}.${decimal.slice(0, 2)}`;
+  }
+  return `$${withCommas}`;
+}
+
 function createCellInput(type, value, className = "") {
   const input = document.createElement("input");
   input.type = type;
   input.value = value ?? "";
   if (className) {
     input.className = className;
-  }
-  if (type === "number") {
-    input.step = "0.01";
-    input.min = "0";
   }
   return input;
 }
@@ -66,14 +83,44 @@ function createRow(row = {}) {
   nameTd.appendChild(createCellInput("text", row.name ?? ""));
 
   const weeklyTd = document.createElement("td");
-  const weeklyInput = createCellInput("number", row.weekly_amount ?? "", "weekly");
+  const weeklyInput = createCellInput("text", formatCurrencyInput(row.weekly_amount ?? ""), "weekly currency-field");
+  weeklyInput.inputMode = "decimal";
   weeklyTd.appendChild(weeklyInput);
 
   const monthlyTd = document.createElement("td");
-  const monthlyInput = createCellInput("number", row.monthly_amount ?? "", "monthly");
+  const monthlyInput = createCellInput("text", formatCurrencyInput(row.monthly_amount ?? ""), "monthly currency-field");
+  monthlyInput.inputMode = "decimal";
   monthlyTd.appendChild(monthlyInput);
 
   const actionsTd = document.createElement("td");
+  const moveUpBtn = document.createElement("button");
+  moveUpBtn.type = "button";
+  moveUpBtn.className = "secondary-btn row-move-btn";
+  moveUpBtn.textContent = "↑";
+  moveUpBtn.ariaLabel = "Move expense row up";
+  moveUpBtn.addEventListener("click", () => {
+    const previousRow = tr.previousElementSibling;
+    if (!previousRow) {
+      return;
+    }
+    emergencyTableBody.insertBefore(tr, previousRow);
+    saveState();
+  });
+
+  const moveDownBtn = document.createElement("button");
+  moveDownBtn.type = "button";
+  moveDownBtn.className = "secondary-btn row-move-btn";
+  moveDownBtn.textContent = "↓";
+  moveDownBtn.ariaLabel = "Move expense row down";
+  moveDownBtn.addEventListener("click", () => {
+    const nextRow = tr.nextElementSibling;
+    if (!nextRow) {
+      return;
+    }
+    emergencyTableBody.insertBefore(nextRow, tr);
+    saveState();
+  });
+
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
   deleteBtn.className = "secondary-btn row-remove-btn";
@@ -82,8 +129,9 @@ function createRow(row = {}) {
   deleteBtn.addEventListener("click", () => {
     tr.remove();
     saveState();
+    refreshTableTotals();
   });
-  actionsTd.appendChild(deleteBtn);
+  actionsTd.append(moveUpBtn, moveDownBtn, deleteBtn);
 
   const setActivePeriod = (period, shouldClearInactive = true) => {
     const weeklyActive = period === "weekly";
@@ -114,9 +162,26 @@ function createRow(row = {}) {
     setActivePeriod("monthly");
     saveState();
   });
+  const attachCurrencyFormatting = (input) => {
+    input.addEventListener("input", () => {
+      const formatted = formatCurrencyInput(input.value);
+      input.value = formatted;
+      debounceSaveState();
+      refreshTableTotals();
+    });
+    input.addEventListener("blur", () => {
+      input.value = formatCurrencyInput(input.value);
+      saveState();
+    });
+  };
+  attachCurrencyFormatting(weeklyInput);
+  attachCurrencyFormatting(monthlyInput);
 
   tr.append(enabledTd, classTd, nameTd, weeklyTd, monthlyTd, actionsTd);
-  tr.addEventListener("input", debounceSaveState);
+  tr.addEventListener("input", () => {
+    debounceSaveState();
+    refreshTableTotals();
+  });
   tr.addEventListener("change", saveState);
   emergencyTableBody.appendChild(tr);
 }
@@ -129,8 +194,8 @@ function collectExpenses() {
       enabled: cells[0].querySelector("input").checked,
       expense_class: cells[1].querySelector("input").value.trim(),
       name: cells[2].querySelector("input").value.trim(),
-      weekly_amount: cells[3].querySelector("input").value,
-      monthly_amount: cells[4].querySelector("input").value,
+      weekly_amount: parseCurrencyInput(cells[3].querySelector("input").value),
+      monthly_amount: parseCurrencyInput(cells[4].querySelector("input").value),
       active_period: row.dataset.activePeriod || "monthly",
     };
   });
@@ -138,7 +203,7 @@ function collectExpenses() {
 
 function saveState() {
   const payload = {
-    current_fund_amount: currentFundInput.value,
+    current_fund_amount: parseCurrencyInput(currentFundInput.value),
     emergency_notes: emergencyNotesInput.value,
     expenses: collectExpenses(),
   };
@@ -180,20 +245,38 @@ function renderProjectionRows(projections, currentFund) {
   projections.forEach((item) => {
     const row = document.createElement("tr");
     const gap = currentFund - item.target;
+    const gapClass = gap >= 0 ? "gap-positive" : "gap-negative";
     row.innerHTML = `
-      <td>${item.months} months</td>
+      <td>${getProjectionLabel(item.months)}</td>
       <td>${formatCurrency(item.target)}</td>
-      <td>${formatCurrency(gap)}</td>
+      <td class="${gapClass}">${formatCurrency(gap)}</td>
     `;
     projectionTableBody.appendChild(row);
   });
 }
 
+function getProjectionLabel(months) {
+  const baseDate = new Date();
+  const projectedDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + months, 1);
+  const month = projectedDate.toLocaleString("en-US", { month: "short" });
+  const year = String(projectedDate.getFullYear()).slice(-2);
+  return `${month} '${year}`;
+}
+
+function getChartTheme() {
+  const computed = getComputedStyle(document.body);
+  return {
+    axisColor: computed.getPropertyValue("--axis-color").trim() || "#1e293b",
+    gridColor: computed.getPropertyValue("--grid-color").trim() || "rgba(148, 163, 184, 0.22)",
+  };
+}
+
 function renderChart(projections, currentFund) {
   const chartEl = document.getElementById("emergencyChart");
-  const labels = projections.map((item) => `${item.months} months`);
+  const labels = projections.map((item) => getProjectionLabel(item.months));
   const targets = projections.map((item) => item.target);
   const currentSeries = projections.map(() => currentFund);
+  const theme = getChartTheme();
 
   if (emergencyChart) {
     emergencyChart.destroy();
@@ -223,15 +306,35 @@ function renderChart(projections, currentFund) {
     },
     options: {
       responsive: true,
+      plugins: {
+        legend: {
+          labels: {
+            color: theme.axisColor,
+          },
+        },
+      },
       scales: {
+        x: {
+          ticks: {
+            color: theme.axisColor,
+          },
+          grid: {
+            color: theme.gridColor,
+          },
+        },
         y: {
+          grid: {
+            color: theme.gridColor,
+          },
           ticks: {
             callback: (value) => formatCurrency(value),
+            color: theme.axisColor,
           },
         },
       },
     },
   });
+  latestProjectionData = { projections, currentFund };
 }
 
 function renderSummary(result, currentFund) {
@@ -243,9 +346,25 @@ function renderSummary(result, currentFund) {
   renderChart(result.projections, currentFund);
 }
 
+function refreshTableTotals() {
+  const expenses = collectExpenses().filter((expense) => expense.enabled);
+  const totals = expenses.reduce(
+    (acc, expense) => {
+      const weekly = Number(expense.weekly_amount || 0);
+      const monthly = Number(expense.monthly_amount || 0);
+      acc.weekly += weekly;
+      acc.monthly += monthly > 0 ? monthly : weekly * 52 / 12;
+      return acc;
+    },
+    { weekly: 0, monthly: 0 },
+  );
+  totalWeeklyEl.textContent = formatCurrency(totals.weekly);
+  totalMonthlyEl.textContent = formatCurrency(totals.monthly);
+}
+
 async function calculateEmergencyFund() {
   errorEl.textContent = "";
-  const currentFund = Number(currentFundInput.value || 0);
+  const currentFund = Number(parseCurrencyInput(currentFundInput.value) || 0);
 
   try {
     const response = await fetch("/api/emergency-fund/calculate", {
@@ -272,7 +391,7 @@ function initialize() {
   const state = loadState();
   const rows = state?.expenses?.length ? state.expenses : DEFAULT_ROWS;
   rows.forEach((row) => createRow(row));
-  currentFundInput.value = state?.current_fund_amount ?? currentFundInput.value;
+  currentFundInput.value = formatCurrencyInput(state?.current_fund_amount ?? currentFundInput.value);
   emergencyNotesInput.value = state?.emergency_notes ?? DEFAULT_NOTES;
   addRowButton.addEventListener("click", () => {
     createRow({ enabled: true, active_period: "monthly" });
@@ -283,6 +402,14 @@ function initialize() {
     input.addEventListener("input", debounceSaveState);
     input.addEventListener("change", saveState);
   });
+  currentFundInput.addEventListener("input", () => {
+    currentFundInput.value = formatCurrencyInput(currentFundInput.value);
+    debounceSaveState();
+  });
+  currentFundInput.addEventListener("blur", () => {
+    currentFundInput.value = formatCurrencyInput(currentFundInput.value);
+    saveState();
+  });
   initializeTheme();
   if (themeToggleButton) {
     themeToggleButton.addEventListener("click", () => {
@@ -291,6 +418,7 @@ function initialize() {
     });
   }
   saveState();
+  refreshTableTotals();
   calculateEmergencyFund();
 }
 
@@ -302,6 +430,9 @@ function setTheme(mode) {
     themeToggleButton.setAttribute("aria-pressed", String(isDark));
   }
   localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+  if (latestProjectionData) {
+    renderChart(latestProjectionData.projections, latestProjectionData.currentFund);
+  }
 }
 
 function initializeTheme() {

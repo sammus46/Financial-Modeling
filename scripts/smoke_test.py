@@ -109,7 +109,12 @@ def run() -> None:
         assert_ok(emergency_response.status_code == 200, "POST /api/emergency-fund/calculate should return 200")
         emergency_data = emergency_response.get_json() or {}
         assert_ok("projections" in emergency_data, "emergency response should contain projections")
-        assert_ok(len(emergency_data.get("projections", [])) == 4, "emergency response should include 3/6/9/12 month projections")
+        projections = emergency_data.get("projections", [])
+        assert_ok(len(projections) == 8, "emergency response should include 3-month projections through 24 months")
+        assert_ok(
+            [item.get("months") for item in projections] == [3, 6, 9, 12, 15, 18, 21, 24],
+            "emergency response projections should be 3..24 in 3-month increments",
+        )
 
     print("Smoke test passed: dashboard + retirement + emergency fund endpoints are healthy.")
 

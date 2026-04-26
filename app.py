@@ -244,7 +244,7 @@ def calculate_emergency_fund(expenses: list[EmergencyExpense], current_fund_amou
 
     projections = [
         {"months": months, "target": total_monthly * months}
-        for months in (3, 6, 9, 12)
+        for months in range(3, 25, 3)
     ]
     coverage_months = (current_fund_amount / total_monthly) if total_monthly > 0 else 0.0
     if coverage_months < 3:
