@@ -822,17 +822,12 @@ body.dark-mode #projection-table td.gap-negative {
 
 .emergency-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 0.8rem;
 }
 
-.emergency-controls .control-card {
-  display: grid;
-  gap: 0.65rem;
-}
-
 .emergency-controls input {
-  max-width: 16rem;
+  max-width: 100%;
 }
 
 .expense-notes-list {
@@ -842,12 +837,36 @@ body.dark-mode #projection-table td.gap-negative {
 
 .expense-note-row {
   display: grid;
-  gap: 0.35rem;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(260px, 2.2fr);
+  gap: 0.5rem;
+  align-items: start;
 }
 
 .expense-note-row-label {
   font-size: 0.88rem;
   font-weight: 650;
+  margin: 0;
+  padding-top: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.expense-note-row textarea {
+  min-height: 2.5rem;
+  resize: vertical;
+}
+
+@media (max-width: 860px) {
+  .emergency-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-note-row {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-note-row-label {
+    padding-top: 0;
+  }
 }
 
 .tool-back-btn {

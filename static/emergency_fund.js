@@ -14,7 +14,6 @@ const currentFundInput = document.getElementById("current_fund_amount");
 const monthlyContributionInput = document.getElementById("monthly_contribution_amount");
 const contributionMonthsInput = document.getElementById("contribution_months");
 const currentTargetCoverageMonthsInput = document.getElementById("current_target_coverage_months");
-const contributionTargetCoverageMonthsInput = document.getElementById("contribution_target_coverage_months");
 const expenseNotesList = document.getElementById("expense-notes-list");
 const totalWeeklyEl = document.getElementById("table-total-weekly");
 const totalMonthlyEl = document.getElementById("table-total-monthly");
@@ -233,8 +232,12 @@ function createRow(row = {}) {
 }
 
 function getNoteLabel(row) {
+  const expenseClass = row.querySelector("td:nth-child(2) textarea")?.value.trim();
   const name = row.querySelector("td:nth-child(3) textarea")?.value.trim();
-  return name || "Untitled expense";
+  return {
+    expenseClass: expenseClass || "Uncategorized",
+    name: name || "Untitled expense",
+  };
 }
 
 function createExpenseNoteRow(row) {
@@ -242,10 +245,14 @@ function createExpenseNoteRow(row) {
   noteRow.className = "expense-note-row";
   noteRow.dataset.rowId = row.dataset.rowId;
 
-  const label = document.createElement("label");
-  label.className = "expense-note-row-label";
-  label.textContent = getNoteLabel(row);
-  label.htmlFor = `expense-note-${row.dataset.rowId}`;
+  const noteLabel = getNoteLabel(row);
+  const classLabel = document.createElement("p");
+  classLabel.className = "expense-note-row-label expense-note-class-label";
+  classLabel.textContent = noteLabel.expenseClass;
+
+  const nameLabel = document.createElement("p");
+  nameLabel.className = "expense-note-row-label expense-note-name-label";
+  nameLabel.textContent = noteLabel.name;
 
   const textarea = document.createElement("textarea");
   textarea.id = `expense-note-${row.dataset.rowId}`;
@@ -262,7 +269,7 @@ function createExpenseNoteRow(row) {
   });
   attachAutoGrow(textarea);
 
-  noteRow.append(label, textarea);
+  noteRow.append(classLabel, nameLabel, textarea);
   return noteRow;
 }
 
@@ -280,9 +287,14 @@ function syncExpenseNotesRows() {
     if (!noteRow) {
       noteRow = createExpenseNoteRow(row);
     }
-    const label = noteRow.querySelector(".expense-note-row-label");
-    if (label) {
-      label.textContent = getNoteLabel(row);
+    const noteLabel = getNoteLabel(row);
+    const classLabel = noteRow.querySelector(".expense-note-class-label");
+    const nameLabel = noteRow.querySelector(".expense-note-name-label");
+    if (classLabel) {
+      classLabel.textContent = noteLabel.expenseClass;
+    }
+    if (nameLabel) {
+      nameLabel.textContent = noteLabel.name;
     }
     return noteRow;
   });
@@ -312,7 +324,6 @@ function saveState() {
     monthly_contribution_amount: parseCurrencyInput(monthlyContributionInput.value),
     contribution_months: Number(contributionMonthsInput.value || 0),
     current_target_coverage_months: Number(currentTargetCoverageMonthsInput.value || 0),
-    contribution_target_coverage_months: Number(contributionTargetCoverageMonthsInput.value || 0),
     expenses: collectExpenses(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -529,7 +540,6 @@ async function calculateEmergencyFund() {
   const monthlyContribution = Number(parseCurrencyInput(monthlyContributionInput.value) || 0);
   const contributionMonths = Number(contributionMonthsInput.value || 0);
   const currentTargetCoverageMonths = Number(currentTargetCoverageMonthsInput.value || 0);
-  const contributionTargetCoverageMonths = Number(contributionTargetCoverageMonthsInput.value || 0);
 
   try {
     const response = await fetch("/api/emergency-fund/calculate", {
@@ -540,7 +550,6 @@ async function calculateEmergencyFund() {
         monthly_contribution_amount: monthlyContribution,
         contribution_months: contributionMonths,
         current_target_coverage_months: currentTargetCoverageMonths,
-        contribution_target_coverage_months: contributionTargetCoverageMonths,
         expenses: collectExpenses(),
       }),
     });
@@ -567,13 +576,12 @@ function initialize() {
   monthlyContributionInput.value = formatCurrencyInput(state?.monthly_contribution_amount ?? monthlyContributionInput.value);
   contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? (contributionMonthsInput.value || 0))));
   currentTargetCoverageMonthsInput.value = String(Math.max(0, Number(state?.current_target_coverage_months ?? (currentTargetCoverageMonthsInput.value || 0))));
-  contributionTargetCoverageMonthsInput.value = String(Math.max(0, Number(state?.contribution_target_coverage_months ?? (contributionTargetCoverageMonthsInput.value || 0))));
   addRowButton.addEventListener("click", () => {
     createRow({ enabled: true, active_period: "monthly" });
     saveState();
   });
   calculateButton.addEventListener("click", calculateEmergencyFund);
-  [currentFundInput, monthlyContributionInput, contributionMonthsInput, currentTargetCoverageMonthsInput, contributionTargetCoverageMonthsInput].forEach((input) => {
+  [currentFundInput, monthlyContributionInput, contributionMonthsInput, currentTargetCoverageMonthsInput].forEach((input) => {
     input.addEventListener("input", debounceSaveState);
     input.addEventListener("change", saveState);
   });

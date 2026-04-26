@@ -247,17 +247,12 @@ def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], 
     if current_target_coverage_months < 0:
         raise ValidationError("Current target coverage months cannot be negative.")
 
-    contribution_target_coverage_months = _parse_float(payload, "contribution_target_coverage_months", default=6.0)
-    if contribution_target_coverage_months < 0:
-        raise ValidationError("Contribution target coverage months cannot be negative.")
-
     return (
         included,
         current_fund_amount,
         monthly_contribution_amount,
         contribution_months,
         current_target_coverage_months,
-        contribution_target_coverage_months,
     )
 
 
@@ -267,7 +262,6 @@ def calculate_emergency_fund(
     monthly_contribution_amount: float,
     contribution_months: int,
     current_target_coverage_months: float,
-    contribution_target_coverage_months: float,
 ) -> dict:
     monthly_amounts = [_to_monthly_amount(expense.weekly_amount, expense.monthly_amount) for expense in expenses]
     total_monthly = sum(monthly_amounts)
@@ -295,8 +289,8 @@ def calculate_emergency_fund(
     projected_horizon_fund = current_fund_amount + monthly_contribution_amount * contribution_horizon_months
     projected_horizon_coverage = (projected_horizon_fund / total_monthly) if total_monthly > 0 else 0.0
     contribution_ratio = (
-        projected_horizon_coverage / contribution_target_coverage_months
-        if contribution_target_coverage_months > 0
+        projected_horizon_coverage / current_target_coverage_months
+        if current_target_coverage_months > 0
         else 0.0
     )
 
@@ -318,7 +312,6 @@ def calculate_emergency_fund(
         "monthly_contribution_amount": monthly_contribution_amount,
         "contribution_months": contribution_months,
         "current_target_coverage_months": current_target_coverage_months,
-        "contribution_target_coverage_months": contribution_target_coverage_months,
         "projected_horizon_coverage_months": projected_horizon_coverage,
     }
 
@@ -611,7 +604,6 @@ def emergency_fund_calculate() -> tuple:
             monthly_contribution_amount,
             contribution_months,
             current_target_coverage_months,
-            contribution_target_coverage_months,
         ) = parse_emergency_fund_inputs(payload)
         result = calculate_emergency_fund(
             expenses,
@@ -619,7 +611,6 @@ def emergency_fund_calculate() -> tuple:
             monthly_contribution_amount,
             contribution_months,
             current_target_coverage_months,
-            contribution_target_coverage_months,
         )
     except ValidationError as exc:
         return jsonify({"error": str(exc)}), 400
