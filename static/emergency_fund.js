@@ -1,22 +1,31 @@
 const emergencyTableBody = document.querySelector("#emergency-table tbody");
 const addRowButton = document.getElementById("add-row-btn");
 const calculateButton = document.getElementById("calculate-emergency-btn");
+const themeToggleButton = document.getElementById("emergency-theme-toggle");
 const errorEl = document.getElementById("emergency-error");
 const monthlyTotalEl = document.getElementById("monthly-total");
 const coverageMonthsEl = document.getElementById("coverage-months");
 const healthStatusEl = document.getElementById("health-status");
+const monthlyCardEl = document.getElementById("emergency-monthly-card");
+const coverageCardEl = document.getElementById("emergency-coverage-card");
+const healthCardEl = document.getElementById("emergency-health-card");
 const projectionTableBody = document.querySelector("#projection-table tbody");
 const currentFundInput = document.getElementById("current_fund_amount");
+const emergencyNotesInput = document.getElementById("emergency_notes");
 
 let emergencyChart;
+let saveTimeoutId;
 
 const DEFAULT_ROWS = [
-  { expense_class: "Weekly Necessities", name: "Groceries", weekly_amount: 200, monthly_amount: 900, notes: "", enabled: true },
-  { expense_class: "Weekly Necessities", name: "Gas", weekly_amount: 40, monthly_amount: 200, notes: "", enabled: true },
-  { expense_class: "Transportation", name: "Auto Insurance", weekly_amount: 31.25, monthly_amount: 133.33, notes: "Paid in full at beginning of year", enabled: true },
-  { expense_class: "Financial Obligations", name: "Rent + renters insurance", weekly_amount: 500, monthly_amount: 2000, notes: "", enabled: true },
-  { expense_class: "Financial Obligations", name: "Student loan payment", weekly_amount: 15.35, monthly_amount: 61.4, notes: "", enabled: true },
+  { expense_class: "Weekly Necessities", name: "Groceries", weekly_amount: "", monthly_amount: 900, enabled: true, active_period: "monthly" },
+  { expense_class: "Weekly Necessities", name: "Gas", weekly_amount: "", monthly_amount: 200, enabled: true, active_period: "monthly" },
+  { expense_class: "Transportation", name: "Auto Insurance", weekly_amount: "", monthly_amount: 133.33, enabled: true, active_period: "monthly" },
+  { expense_class: "Financial Obligations", name: "Rent + renters insurance", weekly_amount: "", monthly_amount: 2000, enabled: true, active_period: "monthly" },
+  { expense_class: "Financial Obligations", name: "Student loan payment", weekly_amount: "", monthly_amount: 61.4, enabled: true, active_period: "monthly" },
 ];
+const DEFAULT_NOTES = "";
+const STORAGE_KEY = "emergency-fund-form-v2";
+const THEME_KEY = "emergency-theme";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-US", {
@@ -57,25 +66,58 @@ function createRow(row = {}) {
   nameTd.appendChild(createCellInput("text", row.name ?? ""));
 
   const weeklyTd = document.createElement("td");
-  weeklyTd.appendChild(createCellInput("number", row.weekly_amount ?? "", "weekly"));
+  const weeklyInput = createCellInput("number", row.weekly_amount ?? "", "weekly");
+  weeklyTd.appendChild(weeklyInput);
 
   const monthlyTd = document.createElement("td");
-  monthlyTd.appendChild(createCellInput("number", row.monthly_amount ?? "", "monthly"));
-
-  const notesTd = document.createElement("td");
-  notesTd.appendChild(createCellInput("text", row.notes ?? ""));
+  const monthlyInput = createCellInput("number", row.monthly_amount ?? "", "monthly");
+  monthlyTd.appendChild(monthlyInput);
 
   const actionsTd = document.createElement("td");
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
-  deleteBtn.className = "secondary-btn";
-  deleteBtn.textContent = "Remove";
+  deleteBtn.className = "secondary-btn row-remove-btn";
+  deleteBtn.textContent = "−";
+  deleteBtn.ariaLabel = "Remove expense row";
   deleteBtn.addEventListener("click", () => {
     tr.remove();
+    saveState();
   });
   actionsTd.appendChild(deleteBtn);
 
-  tr.append(enabledTd, classTd, nameTd, weeklyTd, monthlyTd, notesTd, actionsTd);
+  const setActivePeriod = (period, shouldClearInactive = true) => {
+    const weeklyActive = period === "weekly";
+    weeklyInput.readOnly = !weeklyActive;
+    monthlyInput.readOnly = weeklyActive;
+    weeklyInput.classList.toggle("is-inactive", !weeklyActive);
+    monthlyInput.classList.toggle("is-inactive", weeklyActive);
+    tr.dataset.activePeriod = weeklyActive ? "weekly" : "monthly";
+    if (shouldClearInactive) {
+      if (weeklyActive) {
+        monthlyInput.value = "";
+      } else {
+        weeklyInput.value = "";
+      }
+    }
+  };
+
+  const activePeriod =
+    row.active_period ||
+    ((row.weekly_amount ?? "") !== "" && Number(row.weekly_amount) > 0 ? "weekly" : "monthly");
+  setActivePeriod(activePeriod, false);
+
+  weeklyInput.addEventListener("focus", () => {
+    setActivePeriod("weekly");
+    saveState();
+  });
+  monthlyInput.addEventListener("focus", () => {
+    setActivePeriod("monthly");
+    saveState();
+  });
+
+  tr.append(enabledTd, classTd, nameTd, weeklyTd, monthlyTd, actionsTd);
+  tr.addEventListener("input", debounceSaveState);
+  tr.addEventListener("change", saveState);
   emergencyTableBody.appendChild(tr);
 }
 
@@ -89,9 +131,48 @@ function collectExpenses() {
       name: cells[2].querySelector("input").value.trim(),
       weekly_amount: cells[3].querySelector("input").value,
       monthly_amount: cells[4].querySelector("input").value,
-      notes: cells[5].querySelector("input").value.trim(),
+      active_period: row.dataset.activePeriod || "monthly",
     };
   });
+}
+
+function saveState() {
+  const payload = {
+    current_fund_amount: currentFundInput.value,
+    emergency_notes: emergencyNotesInput.value,
+    expenses: collectExpenses(),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function debounceSaveState() {
+  window.clearTimeout(saveTimeoutId);
+  saveTimeoutId = window.setTimeout(saveState, 150);
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function clearSummaryCardStatuses() {
+  [monthlyCardEl, coverageCardEl, healthCardEl].forEach((card) => {
+    card.classList.remove("status-good", "status-mid", "status-low");
+  });
+}
+
+function applySummaryCardStatuses(result) {
+  clearSummaryCardStatuses();
+  const coverage = Number(result.coverage_months || 0);
+  const status = coverage >= 6 ? "status-good" : coverage >= 3 ? "status-mid" : "status-low";
+  [monthlyCardEl, coverageCardEl, healthCardEl].forEach((card) => card.classList.add(status));
 }
 
 function renderProjectionRows(projections, currentFund) {
@@ -157,6 +238,7 @@ function renderSummary(result, currentFund) {
   monthlyTotalEl.textContent = formatCurrency(result.total_monthly);
   coverageMonthsEl.textContent = `${result.coverage_months.toFixed(2)} months`;
   healthStatusEl.textContent = result.health_status;
+  applySummaryCardStatuses(result);
   renderProjectionRows(result.projections, currentFund);
   renderChart(result.projections, currentFund);
 }
@@ -187,10 +269,45 @@ async function calculateEmergencyFund() {
 }
 
 function initialize() {
-  DEFAULT_ROWS.forEach((row) => createRow(row));
-  addRowButton.addEventListener("click", () => createRow({ enabled: true }));
+  const state = loadState();
+  const rows = state?.expenses?.length ? state.expenses : DEFAULT_ROWS;
+  rows.forEach((row) => createRow(row));
+  currentFundInput.value = state?.current_fund_amount ?? currentFundInput.value;
+  emergencyNotesInput.value = state?.emergency_notes ?? DEFAULT_NOTES;
+  addRowButton.addEventListener("click", () => {
+    createRow({ enabled: true, active_period: "monthly" });
+    saveState();
+  });
   calculateButton.addEventListener("click", calculateEmergencyFund);
+  [currentFundInput, emergencyNotesInput].forEach((input) => {
+    input.addEventListener("input", debounceSaveState);
+    input.addEventListener("change", saveState);
+  });
+  initializeTheme();
+  if (themeToggleButton) {
+    themeToggleButton.addEventListener("click", () => {
+      const toDarkMode = !document.body.classList.contains("dark-mode");
+      setTheme(toDarkMode ? "dark" : "light");
+    });
+  }
+  saveState();
   calculateEmergencyFund();
+}
+
+function setTheme(mode) {
+  const isDark = mode === "dark";
+  document.body.classList.toggle("dark-mode", isDark);
+  if (themeToggleButton) {
+    themeToggleButton.textContent = isDark ? "Light mode" : "Dark mode";
+    themeToggleButton.setAttribute("aria-pressed", String(isDark));
+  }
+  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  const preferredDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme(savedTheme || (preferredDark ? "dark" : "light"));
 }
 
 initialize();

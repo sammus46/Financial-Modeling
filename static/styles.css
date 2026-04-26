@@ -254,6 +254,24 @@ input {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+textarea {
+  border: 1px solid #64748b;
+  border-radius: 10px;
+  padding: 0.52rem 0.6rem;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  width: 100%;
+  resize: vertical;
+  min-height: 6rem;
+}
+
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--focus) 28%, transparent);
+}
+
 input:disabled {
   background: var(--input-disabled-bg);
   color: var(--muted-text);
@@ -700,6 +718,34 @@ body.dark-mode .summary-label {
 #emergency-table input[type="text"],
 #emergency-table input[type="number"] {
   width: 100%;
+  min-width: 7.25rem;
+}
+
+#emergency-table td:nth-child(2) input[type="text"],
+#emergency-table td:nth-child(3) input[type="text"] {
+  min-width: 10rem;
+}
+
+#emergency-table input.is-inactive {
+  background: var(--input-disabled-bg);
+  color: var(--muted-text);
+  cursor: pointer;
+}
+
+#emergency-table .row-remove-btn {
+  min-width: 2.25rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 10px;
+  line-height: 1;
+  font-size: 1.15rem;
+}
+
+.emergency-table-actions {
+  margin-top: 0.55rem;
+}
+
+.emergency-notes-card {
+  margin-top: 1rem;
 }
 
 .emergency-controls {
