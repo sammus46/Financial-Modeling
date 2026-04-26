@@ -10,11 +10,14 @@ const targetCardEl = document.getElementById("target-card");
 const submitButton = document.getElementById("calculate-btn");
 const themeToggleButton = document.getElementById("theme-toggle");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
+const inputsPanel = document.querySelector(".inputs-panel");
+const chartModeButtons = document.querySelectorAll("[data-chart-mode]");
 
 let savingsRateInput;
 let fixedContributionInput;
 let portfolioChart;
 let latestChartData = null;
+let selectedChartMode = "balance";
 
 const THEME_KEY = "retirement-theme";
 
@@ -161,6 +164,13 @@ function renderChart(ages, postTaxBalances, goalLine) {
   });
 
   const theme = getChartTheme();
+  const chartSeries =
+    selectedChartMode === "gap"
+      ? postTaxBalances.map((value, index) => value - goalLine[index])
+      : postTaxBalances;
+  const chartLabel = selectedChartMode === "gap" ? "Gap vs Retirement Goal" : "Portfolio Value (Post-Tax)";
+  const yTickFormatter =
+    selectedChartMode === "gap" ? (value) => `${value >= 0 ? "+" : "-"}${currency(Math.abs(value))}` : (value) => currency(value);
   const ctx = chartEl.getContext("2d");
   const balanceGradient = ctx.createLinearGradient(0, 0, 0, chartEl.height || 320);
   balanceGradient.addColorStop(0, theme.gradientTop);
@@ -176,8 +186,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
       labels: ages,
       datasets: [
         {
-          label: "Portfolio Value (Post-Tax)",
-          data: postTaxBalances,
+          label: chartLabel,
+          data: chartSeries,
           borderColor: theme.balanceLine,
           backgroundColor: balanceGradient,
           fill: true,
@@ -188,7 +198,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
         },
         {
           label: "Retirement Goal",
-          data: goalLine,
+          data: selectedChartMode === "gap" ? goalLine.map(() => 0) : goalLine,
           borderColor: theme.goalLine,
           borderDash: [8, 6],
           tension: 0,
@@ -222,7 +232,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
             color: theme.gridColor,
           },
           ticks: {
-            callback: (value) => currency(value),
+            callback: yTickFormatter,
             color: theme.axisColor,
             font: {
               size: 13,
@@ -250,6 +260,18 @@ function renderChart(ages, postTaxBalances, goalLine) {
           padding: 10,
           callbacks: {
             label: (context) => ` ${context.dataset.label}: ${currency(context.parsed.y)}`,
+            afterLabel: (context) => {
+              if (selectedChartMode === "gap") {
+                return context.parsed.y >= 0 ? " Ahead of plan" : " Behind plan";
+              }
+              if (context.dataset.label !== "Portfolio Value (Post-Tax)") {
+                return "";
+              }
+              const goalValue = goalLine[context.dataIndex] || 0;
+              const gap = context.parsed.y - goalValue;
+              const direction = gap >= 0 ? "Ahead" : "Behind";
+              return ` ${direction} goal by ${currency(Math.abs(gap))}`;
+            },
           },
         },
       },
@@ -257,6 +279,19 @@ function renderChart(ages, postTaxBalances, goalLine) {
   });
 
   latestChartData = { ages, postTaxBalances, goalLine };
+}
+
+function setChartMode(mode) {
+  selectedChartMode = mode;
+  chartModeButtons.forEach((button) => {
+    const isSelected = button.dataset.chartMode === mode;
+    button.classList.toggle("is-active", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+
+  if (latestChartData) {
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine);
+  }
 }
 
 function renderStats(stats) {
@@ -454,4 +489,13 @@ if (themeToggleButton) {
 }
 
 initializeTheme();
+if (inputsPanel) {
+  inputsPanel.addEventListener("scroll", () => {
+    inputsPanel.classList.toggle("scrolled", inputsPanel.scrollTop > 8);
+  });
+}
+chartModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setChartMode(button.dataset.chartMode));
+  button.setAttribute("aria-pressed", button.dataset.chartMode === selectedChartMode ? "true" : "false");
+});
 form.dispatchEvent(new Event("submit"));

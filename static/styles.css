@@ -95,6 +95,10 @@ body {
   box-shadow: var(--shadow-main);
 }
 
+.inputs-panel.scrolled .input-scroll-fade {
+  opacity: 1;
+}
+
 .panel-top-card {
   position: sticky;
   top: 0;
@@ -136,33 +140,24 @@ body {
   gap: 1rem;
   padding-top: 0.2rem;
   padding-bottom: 0.5rem;
-  --input-fade-height: 4.25rem;
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    transparent 0,
-    transparent calc(var(--input-fade-height) * 0.45),
-    rgba(0, 0, 0, 0.8) var(--input-fade-height),
-    #000 calc(var(--input-fade-height) + 0.6rem)
-  );
-  mask-image: linear-gradient(
-    180deg,
-    transparent 0,
-    transparent calc(var(--input-fade-height) * 0.45),
-    rgba(0, 0, 0, 0.8) var(--input-fade-height),
-    #000 calc(var(--input-fade-height) + 0.6rem)
-  );
 }
 
-.input-grid::before {
-  content: "";
+.input-scroll-fade {
   position: sticky;
-  top: 0;
-  z-index: 12;
+  top: 7.9rem;
+  z-index: 18;
   display: block;
-  height: var(--input-fade-height);
-  margin-bottom: calc(-1 * var(--input-fade-height));
+  height: 2.8rem;
+  margin-bottom: -2.2rem;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--card-bg) 0%, color-mix(in oklab, var(--card-bg) 88%, transparent) 52%, transparent 100%);
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--card-bg) 98%, transparent) 0%,
+    color-mix(in oklab, var(--card-bg) 90%, transparent) 46%,
+    transparent 100%
+  );
 }
 
 
@@ -315,6 +310,38 @@ button:disabled {
   height: 340px !important;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.panel-header h2 {
+  margin: 0;
+}
+
+.viz-controls {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.viz-toggle {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card-bg) 75%, #94a3b8 25%);
+  color: var(--text-primary);
+  box-shadow: none;
+  transform: none;
+}
+
+.viz-toggle.is-active {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #fff;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -438,11 +465,10 @@ body.dark-mode td.metric-actual.status-low {
   }
 
   .input-grid {
-    -webkit-mask-image: none;
-    mask-image: none;
+    padding-top: 0;
   }
 
-  .input-grid::before {
+  .input-scroll-fade {
     display: none;
   }
 
