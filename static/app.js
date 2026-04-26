@@ -20,6 +20,7 @@ let latestChartData = null;
 let selectedChartMode = "balance";
 
 const THEME_KEY = "retirement-theme";
+const FORM_VALUES_KEY = "retirement-form-values-v1";
 
 const DEBUG_PREFIX = "[retirement-ui]";
 
@@ -364,6 +365,10 @@ function syncContributionMode() {
 
   savingsRateInput.disabled = !usingPercent;
   fixedContributionInput.disabled = usingPercent;
+  const contributionModeFieldset = form.querySelector(".contribution-mode");
+  if (contributionModeFieldset) {
+    contributionModeFieldset.dataset.mode = mode;
+  }
 }
 
 function parseCurrencyInput(value) {
@@ -391,6 +396,116 @@ function normalizeCurrencyFields(payload) {
   });
 }
 
+function ensureFieldErrorElement(fieldName) {
+  let fieldErrorEl = form.querySelector(`[data-error-for="${fieldName}"]`);
+  if (fieldErrorEl) {
+    return fieldErrorEl;
+  }
+  const field = form.elements[fieldName];
+  if (!field) {
+    return null;
+  }
+  fieldErrorEl = document.createElement("p");
+  fieldErrorEl.className = "field-error";
+  fieldErrorEl.dataset.errorFor = fieldName;
+  field.insertAdjacentElement("afterend", fieldErrorEl);
+  return fieldErrorEl;
+}
+
+function clearFieldErrors() {
+  form.querySelectorAll("input").forEach((field) => {
+    field.setAttribute("aria-invalid", "false");
+  });
+  form.querySelectorAll(".field-error").forEach((errorNode) => {
+    errorNode.textContent = "";
+    errorNode.classList.remove("active");
+  });
+}
+
+function setFieldError(fieldName, message) {
+  const field = form.elements[fieldName];
+  if (!field) {
+    return;
+  }
+  field.setAttribute("aria-invalid", "true");
+  const fieldErrorEl = ensureFieldErrorElement(fieldName);
+  if (fieldErrorEl) {
+    fieldErrorEl.textContent = message;
+    fieldErrorEl.classList.add("active");
+  }
+}
+
+function validateForm(payload) {
+  const errors = [];
+  const number = (fieldName) => Number(payload[fieldName] ?? 0);
+  const currentAge = number("current_age");
+  const retirementAge = number("retirement_age");
+  const inflationRate = number("inflation_rate");
+  const retirementSpendRate = number("retirement_spend_rate");
+  const desiredSwr = number("desired_swr");
+  const mode = payload.contribution_mode;
+  const savingsRateValue = number("savings_rate");
+  const fixedContributionValue = Number(parseCurrencyInput(payload.fixed_annual_contribution || "0"));
+
+  if (retirementAge <= currentAge) {
+    errors.push({ field: "retirement_age", message: "Retirement age must be greater than current age." });
+  }
+  if (inflationRate <= 0) {
+    errors.push({ field: "inflation_rate", message: "Inflation rate must be greater than 0." });
+  }
+  if (retirementSpendRate <= 0) {
+    errors.push({ field: "retirement_spend_rate", message: "Retirement spending rate must be greater than 0." });
+  }
+  if (desiredSwr <= 0) {
+    errors.push({ field: "desired_swr", message: "Desired SWR must be greater than 0." });
+  }
+  ["traditional_retirement_tax_rate", "brokerage_retirement_tax_rate"].forEach((fieldName) => {
+    if (number(fieldName) > 100) {
+      errors.push({ field: fieldName, message: "Tax rate cannot be greater than 100%." });
+    }
+  });
+  if (mode === "percent" && savingsRateValue <= 0) {
+    errors.push({ field: "savings_rate", message: "Savings rate must be greater than 0 in % mode." });
+  }
+  if (mode === "fixed" && fixedContributionValue <= 0) {
+    errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be greater than $0 in fixed mode." });
+  }
+
+  return errors;
+}
+
+function saveFormValues() {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  localStorage.setItem(FORM_VALUES_KEY, JSON.stringify(payload));
+}
+
+function applySavedFormValues() {
+  const saved = localStorage.getItem(FORM_VALUES_KEY);
+  if (!saved) {
+    return;
+  }
+  try {
+    const values = JSON.parse(saved);
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements[name];
+      if (!field) {
+        return;
+      }
+      if (field instanceof RadioNodeList) {
+        const radio = form.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (radio) {
+          radio.checked = true;
+        }
+        return;
+      }
+      field.value = value;
+    });
+    logDebug("Loaded saved form values.");
+  } catch (error) {
+    logDebug("Failed to parse saved form values.", error);
+  }
+}
+
 async function handleSubmit(event) {
   event.preventDefault();
   errorEl.textContent = "";
@@ -402,21 +517,17 @@ async function handleSubmit(event) {
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
     normalizeCurrencyFields(payload);
+    clearFieldErrors();
+    const validationErrors = validateForm(payload);
+    if (validationErrors.length > 0) {
+      validationErrors.forEach((validationError) => setFieldError(validationError.field, validationError.message));
+      errorEl.textContent = validationErrors[0].message;
+      logDebug("Client validation blocked submit.", { validationErrors });
+      return;
+    }
+
     const mode = form.elements["contribution_mode"].value;
-    const savingsRateValue = Number(form.elements["savings_rate"].value || 0);
     const fixedContributionValue = Number(parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"));
-
-    if (mode === "percent" && savingsRateValue <= 0) {
-      errorEl.textContent = "Savings rate must be greater than 0 when using % mode.";
-      logDebug("Client validation blocked submit: invalid percent savings rate.", { savingsRateValue });
-      return;
-    }
-    if (mode === "fixed" && fixedContributionValue <= 0) {
-      errorEl.textContent = "Fixed annual contribution must be greater than $0 in fixed mode.";
-      logDebug("Client validation blocked submit: invalid fixed contribution.", { fixedContributionValue });
-      return;
-    }
-
     payload.savings_rate = mode === "percent" ? form.elements["savings_rate"].value || "0" : "0";
     payload.fixed_annual_contribution = mode === "fixed" ? String(fixedContributionValue) : "0";
     logDebug("Prepared payload.", payload);
@@ -454,6 +565,7 @@ async function handleSubmit(event) {
     renderChart(data.ages, data.post_tax_balances, data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);
+    saveFormValues();
   } catch (_error) {
     logDebug("Unhandled error during calculate flow.", _error);
     errorEl.textContent = "Something went wrong while calculating. Please try again.";
@@ -467,15 +579,36 @@ async function handleSubmit(event) {
 savingsRateInput = form.elements["savings_rate"];
 fixedContributionInput = form.elements["fixed_annual_contribution"];
 
+applySavedFormValues();
+
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
   radio.addEventListener("change", syncContributionMode);
+  radio.addEventListener("change", saveFormValues);
+});
+
+form.querySelectorAll("input").forEach((input) => {
+  input.addEventListener("input", () => {
+    input.setAttribute("aria-invalid", "false");
+    const inlineError = form.querySelector(`[data-error-for="${input.name}"]`);
+    if (inlineError) {
+      inlineError.textContent = "";
+      inlineError.classList.remove("active");
+    }
+    saveFormValues();
+  });
 });
 
 currencyInputs.forEach((input) => {
   input.value = formatCurrencyInput(input.value);
   input.addEventListener("input", () => {
+    input.value = parseCurrencyInput(input.value);
+  });
+  input.addEventListener("blur", () => {
     input.value = formatCurrencyInput(input.value);
+  });
+  input.addEventListener("focus", () => {
+    input.value = parseCurrencyInput(input.value);
   });
 });
 
