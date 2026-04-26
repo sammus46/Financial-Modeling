@@ -325,6 +325,10 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
                 return ` Crossover at ${selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)}`;
               }
 
+              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(selectedChartMode) && context.dataset.label === goalSeriesLabel) {
+                return ` Dynamic goal: ${currency(selectedGoalLine[context.dataIndex] || 0)}`;
+              }
+
               return ` ${context.dataset.label}: ${
                 selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)
               }`;
@@ -332,6 +336,10 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
             afterLabel: (context) => {
               if (context.dataset.label === "Crossover Point") {
                 return " Actual and goal are equal at this point.";
+              }
+
+              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(selectedChartMode) && context.dataset.label === goalSeriesLabel) {
+                return "";
               }
 
               if (selectedChartMode === "progress") {
