@@ -17,6 +17,24 @@ python app.py
 
 Open `http://127.0.0.1:5000`.
 
+## Smoke test
+
+Run a quick backend/UI wiring smoke test:
+- checks `GET /` returns 200
+- checks cache-busted assets are present in HTML (`styles.css?v=`, `app.js?v=`)
+- checks `POST /calculate` succeeds for both contribution modes (`percent` + `fixed`)
+
+```bash
+pip install -r requirements.txt
+python scripts/smoke_test.py
+```
+
+Expected output:
+
+```text
+Smoke test passed: index + calculate (percent/fixed) are healthy.
+```
+
 ## UI screenshots in Codex/CI
 
 If you see a message like _“browser_container-style screenshot tool is not available”_, it means the runtime where the agent is executing does not have a browser screenshot capability enabled.
