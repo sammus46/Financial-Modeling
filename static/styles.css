@@ -104,6 +104,18 @@ body {
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   padding: 0.95rem;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.panel-top-card::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: -14px;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--card-bg) 90%, transparent) 0%, transparent 100%);
 }
 
 .panel-top-card h1 {
@@ -316,8 +328,9 @@ button:disabled {
 
 .summary-label {
   margin: 0;
-  color: color-mix(in oklab, var(--text-primary) 70%, var(--muted-text) 30%);
+  color: color-mix(in oklab, var(--text-primary) 88%, var(--muted-text) 12%);
   font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .summary-value {
@@ -347,6 +360,33 @@ td {
 
 th {
   color: var(--text-primary);
+}
+
+td.metric-actual.status-good {
+  color: #067647;
+  font-weight: 650;
+}
+
+td.metric-actual.status-mid {
+  color: #b54708;
+  font-weight: 650;
+}
+
+td.metric-actual.status-low {
+  color: #b42318;
+  font-weight: 650;
+}
+
+body.dark-mode td.metric-actual.status-good {
+  color: #6ce9b6;
+}
+
+body.dark-mode td.metric-actual.status-mid {
+  color: #f9c97f;
+}
+
+body.dark-mode td.metric-actual.status-low {
+  color: #fda29b;
 }
 
 .table-note {
