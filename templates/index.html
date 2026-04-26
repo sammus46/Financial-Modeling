@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retirement Calculator Visualizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <main class="app-layout">
+      <aside class="inputs-panel">
+        <h1>Retirement Calculator</h1>
+        <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
+
+        <form id="retirement-form" class="input-grid">
+          <section class="form-section">
+            <h2>Personal Characteristics</h2>
+            <label>
+              Current age <span class="field-tag required">Required</span>
+              <input type="number" name="current_age" value="30" min="0" required />
+            </label>
+            <label>
+              Desired retirement age <span class="field-tag required">Required</span>
+              <input type="number" name="retirement_age" value="65" min="1" required />
+            </label>
+            <label>
+              Annual income ($) <span class="field-tag required">Required</span>
+              <input type="number" name="annual_income" value="120000" min="1" step="0.01" required />
+            </label>
+            <label>
+              Expected yearly salary growth (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="salary_growth_rate" value="3" min="0" max="100" step="0.01" />
+            </label>
+          </section>
+
+          <section class="form-section">
+            <h2>Investment Characteristics</h2>
+            <label>
+              Traditional assets ($) <span class="field-tag optional">Optional</span>
+              <input type="number" name="traditional_assets" value="50000" min="0" step="0.01" />
+            </label>
+            <label>
+              Roth assets ($) <span class="field-tag optional">Optional</span>
+              <input type="number" name="roth_assets" value="25000" min="0" step="0.01" />
+            </label>
+            <label>
+              Brokerage assets ($) <span class="field-tag optional">Optional</span>
+              <input type="number" name="brokerage_assets" value="10000" min="0" step="0.01" />
+            </label>
+
+            <fieldset class="contribution-mode">
+              <legend>Contribution method <span class="field-tag required">Required</span></legend>
+              <label class="radio">
+                <input type="radio" name="contribution_mode" value="percent" checked />
+                Use % of income saved
+              </label>
+              <label>
+                % of income saved <span class="field-tag optional">Optional</span>
+                <input type="number" name="savings_rate" value="20" min="0" max="100" step="0.01" />
+              </label>
+
+              <label class="radio">
+                <input type="radio" name="contribution_mode" value="fixed" />
+                Use fixed annual contribution
+              </label>
+              <label>
+                Fixed annual contribution ($) <span class="field-tag optional">Optional</span>
+                <input type="number" name="fixed_annual_contribution" value="0" min="0" step="0.01" />
+              </label>
+            </fieldset>
+
+            <label>
+              Traditional pre-tax return rate (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="traditional_return_rate" value="7" min="0" max="100" step="0.01" />
+            </label>
+            <label>
+              Roth pre-tax return rate (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="roth_return_rate" value="7" min="0" max="100" step="0.01" />
+            </label>
+            <label>
+              Brokerage pre-tax return rate (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="brokerage_return_rate" value="7" min="0" max="100" step="0.01" />
+            </label>
+          </section>
+
+          <section class="form-section">
+            <h2>Retirement Characteristics</h2>
+            <label>
+              Inflation rate (%) <span class="field-tag required">Required</span>
+              <input type="number" name="inflation_rate" value="2.5" min="0" max="100" step="0.01" required />
+            </label>
+            <label>
+              % of current income to spend in retirement <span class="field-tag required">Required</span>
+              <input type="number" name="retirement_spend_rate" value="70" min="0" max="100" step="0.01" required />
+            </label>
+            <label>
+              Desired SWR (%) <span class="field-tag required">Required</span>
+              <input type="number" name="desired_swr" value="4" min="0" max="100" step="0.01" required />
+            </label>
+            <label>
+              Traditional retirement tax rate (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="traditional_retirement_tax_rate" value="22" min="0" max="100" step="0.01" />
+            </label>
+            <label>
+              Brokerage retirement tax rate (%) <span class="field-tag optional">Optional</span>
+              <input type="number" name="brokerage_retirement_tax_rate" value="15" min="0" max="100" step="0.01" />
+            </label>
+          </section>
+
+          <div class="actions">
+            <button type="submit">Calculate</button>
+          </div>
+        </form>
+      </aside>
+
+      <section class="results-panel">
+        <p id="error" class="error"></p>
+
+        <section class="panel">
+          <h2>Portfolio Over Time (Post-Tax)</h2>
+          <canvas id="portfolioChart"></canvas>
+        </section>
+
+        <section class="panel">
+          <h2>Retirement Stats</h2>
+          <table id="stats-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Actual</th>
+                <th>Goal</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
