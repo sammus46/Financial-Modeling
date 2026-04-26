@@ -42,6 +42,8 @@ def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
     value = payload.get(key, default)
     if value is None or value == "":
         return default
+    if isinstance(value, str):
+        value = value.replace(",", "").replace("$", "").strip()
     return float(value)
 
 
