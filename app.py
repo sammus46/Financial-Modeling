@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import isclose
+
+from flask import Flask, jsonify, render_template, request
+
+app = Flask(__name__)
+
+
+@dataclass
+class RetirementInputs:
+    current_age: int
+    retirement_age: int
+    traditional_assets: float
+    roth_assets: float
+    brokerage_assets: float
+    annual_income: float
+    salary_growth_rate: float
+    savings_rate: float
+    fixed_annual_contribution: float
+    inflation_rate: float
+    traditional_return_rate: float
+    roth_return_rate: float
+    brokerage_return_rate: float
+    retirement_spend_rate: float
+    desired_swr: float
+    traditional_retirement_tax_rate: float
+    brokerage_retirement_tax_rate: float
+
+
+class ValidationError(ValueError):
+    """Raised for invalid user input."""
+
+
+def _to_decimal(percent: float) -> float:
+    return percent / 100.0
+
+
+def _safe_allocation_weights(traditional: float, roth: float, brokerage: float) -> tuple[float, float, float]:
+    total = traditional + roth + brokerage
+    if isclose(total, 0.0):
+        return (1 / 3, 1 / 3, 1 / 3)
+    return (traditional / total, roth / total, brokerage / total)
+
+
+def parse_inputs(payload: dict) -> RetirementInputs:
+    try:
+        current_age = int(payload["current_age"])
+        retirement_age = int(payload["retirement_age"])
+
+        data = RetirementInputs(
+            current_age=current_age,
+            retirement_age=retirement_age,
+            traditional_assets=float(payload["traditional_assets"]),
+            roth_assets=float(payload["roth_assets"]),
+            brokerage_assets=float(payload["brokerage_assets"]),
+            annual_income=float(payload["annual_income"]),
+            salary_growth_rate=float(payload["salary_growth_rate"]),
+            savings_rate=float(payload["savings_rate"]),
+            fixed_annual_contribution=float(payload["fixed_annual_contribution"]),
+            inflation_rate=float(payload["inflation_rate"]),
+            traditional_return_rate=float(payload["traditional_return_rate"]),
+            roth_return_rate=float(payload["roth_return_rate"]),
+            brokerage_return_rate=float(payload["brokerage_return_rate"]),
+            retirement_spend_rate=float(payload["retirement_spend_rate"]),
+            desired_swr=float(payload["desired_swr"]),
+            traditional_retirement_tax_rate=float(payload["traditional_retirement_tax_rate"]),
+            brokerage_retirement_tax_rate=float(payload["brokerage_retirement_tax_rate"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValidationError("Please enter valid numeric inputs for all fields.") from exc
+
+    if retirement_age <= current_age:
+        raise ValidationError("Retirement age must be greater than current age.")
+    if data.annual_income <= 0:
+        raise ValidationError("Annual income must be greater than 0.")
+    if data.fixed_annual_contribution < 0:
+        raise ValidationError("Fixed annual contribution cannot be negative.")
+
+    percent_fields = {
+        "salary growth rate": data.salary_growth_rate,
+        "savings rate": data.savings_rate,
+        "inflation rate": data.inflation_rate,
+        "traditional return rate": data.traditional_return_rate,
+        "roth return rate": data.roth_return_rate,
+        "brokerage return rate": data.brokerage_return_rate,
+        "retirement spending percent": data.retirement_spend_rate,
+        "desired SWR": data.desired_swr,
+        "traditional retirement tax rate": data.traditional_retirement_tax_rate,
+        "brokerage retirement tax rate": data.brokerage_retirement_tax_rate,
+    }
+    for field_name, value in percent_fields.items():
+        if not 0 <= value <= 100:
+            raise ValidationError(f"{field_name.title()} must be between 0 and 100.")
+
+    for field_name, value in {
+        "traditional assets": data.traditional_assets,
+        "roth assets": data.roth_assets,
+        "brokerage assets": data.brokerage_assets,
+    }.items():
+        if value < 0:
+            raise ValidationError(f"{field_name.title()} cannot be negative.")
+
+    return data
+
+
+def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0) -> dict:
+    years_to_retirement = data.retirement_age - data.current_age
+
+    income = data.annual_income
+    savings_rate = _to_decimal(data.savings_rate)
+    growth_salary = _to_decimal(data.salary_growth_rate)
+    trad_return = _to_decimal(data.traditional_return_rate)
+    roth_return = _to_decimal(data.roth_return_rate)
+    brokerage_return = _to_decimal(data.brokerage_return_rate)
+
+    trad_balance = data.traditional_assets
+    roth_balance = data.roth_assets
+    brokerage_balance = data.brokerage_assets
+
+    weights = _safe_allocation_weights(trad_balance, roth_balance, brokerage_balance)
+
+    ages = [data.current_age]
+    balances = [trad_balance + roth_balance + brokerage_balance]
+
+    for i in range(1, years_to_retirement + 1):
+        total_contribution = (
+            (income * savings_rate)
+            + data.fixed_annual_contribution
+            + extra_fixed_contribution
+        )
+        trad_contrib = total_contribution * weights[0]
+        roth_contrib = total_contribution * weights[1]
+        brokerage_contrib = total_contribution * weights[2]
+
+        trad_balance = trad_balance * (1 + trad_return) + trad_contrib
+        roth_balance = roth_balance * (1 + roth_return) + roth_contrib
+        brokerage_balance = brokerage_balance * (1 + brokerage_return) + brokerage_contrib
+
+        ages.append(data.current_age + i)
+        balances.append(trad_balance + roth_balance + brokerage_balance)
+
+        income *= 1 + growth_salary
+
+    return {
+        "ages": ages,
+        "balances": balances,
+        "traditional_balance": trad_balance,
+        "roth_balance": roth_balance,
+        "brokerage_balance": brokerage_balance,
+        "projected_income_at_retirement": income,
+        "starting_total_contribution": (
+            (data.annual_income * savings_rate)
+            + data.fixed_annual_contribution
+            + extra_fixed_contribution
+        ),
+    }
+
+
+def after_tax_retirement_value(data: RetirementInputs, projection: dict) -> float:
+    trad_tax = _to_decimal(data.traditional_retirement_tax_rate)
+    brokerage_tax = _to_decimal(data.brokerage_retirement_tax_rate)
+
+    trad_after_tax = projection["traditional_balance"] * (1 - trad_tax)
+    roth_after_tax = projection["roth_balance"]
+    brokerage_after_tax = projection["brokerage_balance"] * (1 - brokerage_tax)
+    return trad_after_tax + roth_after_tax + brokerage_after_tax
+
+
+def find_required_additional_contribution(data: RetirementInputs, target_nest_egg: float) -> float:
+    baseline_projection = run_projection(data, extra_fixed_contribution=0.0)
+    baseline_after_tax = after_tax_retirement_value(data, baseline_projection)
+
+    if baseline_after_tax >= target_nest_egg:
+        return 0.0
+
+    low = 0.0
+    high = max(1_000.0, data.annual_income)
+
+    while after_tax_retirement_value(data, run_projection(data, high)) < target_nest_egg:
+        high *= 2
+        if high > 10_000_000:
+            return high
+
+    for _ in range(60):
+        mid = (low + high) / 2
+        value_mid = after_tax_retirement_value(data, run_projection(data, mid))
+        if value_mid >= target_nest_egg:
+            high = mid
+        else:
+            low = mid
+
+    return high
+
+
+def calculate_projection(data: RetirementInputs) -> dict:
+    years_to_retirement = data.retirement_age - data.current_age
+    inflation = _to_decimal(data.inflation_rate)
+    retirement_spend_rate = _to_decimal(data.retirement_spend_rate)
+    desired_swr = _to_decimal(data.desired_swr)
+
+    projection = run_projection(data, extra_fixed_contribution=0.0)
+    future_portfolio_pre_tax = projection["balances"][-1]
+    future_portfolio_after_tax = after_tax_retirement_value(data, projection)
+
+    first_year_retirement_spending = (
+        data.annual_income * retirement_spend_rate * ((1 + inflation) ** years_to_retirement)
+    )
+
+    target_nest_egg = (
+        first_year_retirement_spending / desired_swr
+        if not isclose(desired_swr, 0.0)
+        else float("inf")
+    )
+
+    actual_withdrawal_rate = (
+        first_year_retirement_spending / future_portfolio_after_tax
+        if future_portfolio_after_tax > 0
+        else float("inf")
+    )
+
+    additional_required = find_required_additional_contribution(data, target_nest_egg)
+    required_yearly_savings = projection["starting_total_contribution"] + additional_required
+
+    yearly_salary_at_retirement = future_portfolio_after_tax * desired_swr
+    retirement_goal_achieved_pct = (
+        (future_portfolio_after_tax / target_nest_egg) * 100
+        if target_nest_egg not in (0, float("inf"))
+        else 0.0
+    )
+
+    return {
+        "ages": projection["ages"],
+        "balances": projection["balances"],
+        "stats": {
+            "future_value_pre_tax_at_retirement": future_portfolio_pre_tax,
+            "future_value_after_tax_at_retirement": future_portfolio_after_tax,
+            "traditional_balance_at_retirement": projection["traditional_balance"],
+            "roth_balance_at_retirement": projection["roth_balance"],
+            "brokerage_balance_at_retirement": projection["brokerage_balance"],
+            "projected_income_at_retirement": projection["projected_income_at_retirement"],
+            "first_year_retirement_spending": first_year_retirement_spending,
+            "target_nest_egg": target_nest_egg,
+            "actual_withdrawal_rate": actual_withdrawal_rate * 100,
+            "yearly_savings_goal": required_yearly_savings,
+            "additional_yearly_savings_needed": additional_required,
+            "monthly_savings_goal": required_yearly_savings / 12,
+            "yearly_salary_at_retirement": yearly_salary_at_retirement,
+            "retirement_goal_achieved_pct": retirement_goal_achieved_pct,
+        },
+    }
+
+
+@app.route("/", methods=["GET"])
+def index() -> str:
+    return render_template("index.html")
+
+
+@app.route("/calculate", methods=["POST"])
+def calculate() -> tuple:
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        data = parse_inputs(payload)
+        result = calculate_projection(data)
+    except ValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(result), 200
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
