@@ -13,13 +13,16 @@ const projectionTableBody = document.querySelector("#projection-table tbody");
 const currentFundInput = document.getElementById("current_fund_amount");
 const monthlyContributionInput = document.getElementById("monthly_contribution_amount");
 const contributionMonthsInput = document.getElementById("contribution_months");
-const emergencyNotesInput = document.getElementById("emergency_notes");
+const currentTargetCoverageMonthsInput = document.getElementById("current_target_coverage_months");
+const contributionTargetCoverageMonthsInput = document.getElementById("contribution_target_coverage_months");
+const expenseNotesList = document.getElementById("expense-notes-list");
 const totalWeeklyEl = document.getElementById("table-total-weekly");
 const totalMonthlyEl = document.getElementById("table-total-monthly");
 
 let emergencyChart;
 let saveTimeoutId;
 let latestProjectionData = null;
+let rowIdCounter = 0;
 
 const DEFAULT_ROWS = [
   { expense_class: "Weekly Necessities", name: "Groceries", weekly_amount: "", monthly_amount: 900, enabled: true, active_period: "monthly" },
@@ -28,7 +31,6 @@ const DEFAULT_ROWS = [
   { expense_class: "Financial Obligations", name: "Rent + renters insurance", weekly_amount: "", monthly_amount: 2000, enabled: true, active_period: "monthly" },
   { expense_class: "Financial Obligations", name: "Student loan payment", weekly_amount: "", monthly_amount: 61.4, enabled: true, active_period: "monthly" },
 ];
-const DEFAULT_NOTES = "";
 const STORAGE_KEY = "emergency-fund-form-v2";
 const LEGACY_STORAGE_KEYS = ["emergency-fund-form-v1", "emergency-fund-form"];
 const THEME_KEY = "financial-modeling-theme";
@@ -79,8 +81,24 @@ function createCellInput(type, value, className = "") {
   return input;
 }
 
+function normalizeRowId(idCandidate = "") {
+  const value = String(idCandidate || "").trim();
+  if (value) {
+    const match = value.match(/^expense-row-(\d+)$/);
+    if (match) {
+      rowIdCounter = Math.max(rowIdCounter, Number(match[1]) + 1);
+    }
+    return value;
+  }
+  const generated = `expense-row-${rowIdCounter++}`;
+  return generated;
+}
+
 function createRow(row = {}) {
   const tr = document.createElement("tr");
+  const rowId = normalizeRowId(row.id);
+  tr.dataset.rowId = rowId;
+  tr.dataset.note = row.notes ?? "";
 
   const enabledTd = document.createElement("td");
   const enabled = document.createElement("input");
@@ -104,6 +122,7 @@ function createRow(row = {}) {
   nameInput.value = row.name ?? "";
   nameTd.appendChild(nameInput);
   attachAutoGrow(nameInput);
+  nameInput.addEventListener("input", () => syncExpenseNotesRows());
 
   const weeklyTd = document.createElement("td");
   const weeklyInput = createCellInput("text", formatCurrencyInput(row.weekly_amount ?? ""), "weekly currency-field");
@@ -127,6 +146,7 @@ function createRow(row = {}) {
       return;
     }
     emergencyTableBody.insertBefore(tr, previousRow);
+    syncExpenseNotesRows();
     saveState();
   });
 
@@ -141,6 +161,7 @@ function createRow(row = {}) {
       return;
     }
     emergencyTableBody.insertBefore(nextRow, tr);
+    syncExpenseNotesRows();
     saveState();
   });
 
@@ -151,6 +172,7 @@ function createRow(row = {}) {
   deleteBtn.ariaLabel = "Remove expense row";
   deleteBtn.addEventListener("click", () => {
     tr.remove();
+    syncExpenseNotesRows();
     saveState();
     refreshTableTotals();
   });
@@ -207,6 +229,64 @@ function createRow(row = {}) {
   });
   tr.addEventListener("change", saveState);
   emergencyTableBody.appendChild(tr);
+  syncExpenseNotesRows();
+}
+
+function getNoteLabel(row) {
+  const name = row.querySelector("td:nth-child(3) textarea")?.value.trim();
+  return name || "Untitled expense";
+}
+
+function createExpenseNoteRow(row) {
+  const noteRow = document.createElement("div");
+  noteRow.className = "expense-note-row";
+  noteRow.dataset.rowId = row.dataset.rowId;
+
+  const label = document.createElement("label");
+  label.className = "expense-note-row-label";
+  label.textContent = getNoteLabel(row);
+  label.htmlFor = `expense-note-${row.dataset.rowId}`;
+
+  const textarea = document.createElement("textarea");
+  textarea.id = `expense-note-${row.dataset.rowId}`;
+  textarea.rows = 2;
+  textarea.placeholder = "Add notes for this expense...";
+  textarea.value = row.dataset.note || "";
+  textarea.addEventListener("input", () => {
+    row.dataset.note = textarea.value;
+    debounceSaveState();
+  });
+  textarea.addEventListener("change", () => {
+    row.dataset.note = textarea.value;
+    saveState();
+  });
+  attachAutoGrow(textarea);
+
+  noteRow.append(label, textarea);
+  return noteRow;
+}
+
+function syncExpenseNotesRows() {
+  if (!expenseNotesList) {
+    return;
+  }
+  const rows = Array.from(emergencyTableBody.querySelectorAll("tr"));
+  const existingNoteRows = new Map(
+    Array.from(expenseNotesList.querySelectorAll(".expense-note-row")).map((noteRow) => [noteRow.dataset.rowId, noteRow]),
+  );
+  const nextNoteRows = rows.map((row) => {
+    const rowId = row.dataset.rowId;
+    let noteRow = existingNoteRows.get(rowId);
+    if (!noteRow) {
+      noteRow = createExpenseNoteRow(row);
+    }
+    const label = noteRow.querySelector(".expense-note-row-label");
+    if (label) {
+      label.textContent = getNoteLabel(row);
+    }
+    return noteRow;
+  });
+  expenseNotesList.replaceChildren(...nextNoteRows);
 }
 
 function collectExpenses() {
@@ -220,6 +300,8 @@ function collectExpenses() {
       weekly_amount: parseCurrencyInput(cells[3].querySelector("input").value),
       monthly_amount: parseCurrencyInput(cells[4].querySelector("input").value),
       active_period: row.dataset.activePeriod || "monthly",
+      notes: row.dataset.note || "",
+      id: row.dataset.rowId,
     };
   });
 }
@@ -229,7 +311,8 @@ function saveState() {
     current_fund_amount: parseCurrencyInput(currentFundInput.value),
     monthly_contribution_amount: parseCurrencyInput(monthlyContributionInput.value),
     contribution_months: Number(contributionMonthsInput.value || 0),
-    emergency_notes: emergencyNotesInput.value,
+    current_target_coverage_months: Number(currentTargetCoverageMonthsInput.value || 0),
+    contribution_target_coverage_months: Number(contributionTargetCoverageMonthsInput.value || 0),
     expenses: collectExpenses(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -272,6 +355,8 @@ function normalizeRow(row) {
     weekly_amount: parseCurrencyInput(row.weekly_amount ?? row.weeklyAmount ?? ""),
     monthly_amount: parseCurrencyInput(row.monthly_amount ?? row.monthlyAmount ?? ""),
     active_period: row.active_period === "weekly" ? "weekly" : "monthly",
+    notes: String(row.notes ?? ""),
+    id: String(row.id ?? ""),
   };
 }
 
@@ -289,7 +374,9 @@ function clearSummaryCardStatuses() {
 function applySummaryCardStatuses(result) {
   clearSummaryCardStatuses();
   const coverage = Number(result.coverage_months || 0);
-  const status = coverage >= 6 ? "status-good" : coverage >= 3 ? "status-mid" : "status-low";
+  const target = Number(result.current_target_coverage_months || 0);
+  const ratio = target > 0 ? coverage / target : 0;
+  const status = ratio >= 1 ? "status-good" : ratio >= 0.75 ? "status-mid" : "status-low";
   [monthlyCardEl, coverageCardEl, healthCardEl].forEach((card) => card.classList.add(status));
 }
 
@@ -329,6 +416,7 @@ function renderChart(projections) {
   const labels = projections.map((item) => getProjectionLabel(item.months));
   const targets = projections.map((item) => item.target);
   const currentSeries = projections.map((item) => Number(item.projected_fund || 0));
+  const belowTarget = projections.map((item) => Number(item.projected_fund || 0) < Number(item.target || 0));
   const theme = getChartTheme();
 
   if (emergencyChart) {
@@ -353,7 +441,9 @@ function renderChart(projections) {
           data: currentSeries,
           borderColor: "#f59e0b",
           borderWidth: 2,
-          pointRadius: 2,
+          pointRadius: belowTarget.map((isBelow) => (isBelow ? 5 : 2)),
+          pointBackgroundColor: belowTarget.map((isBelow) => (isBelow ? "#dc2626" : "#f59e0b")),
+          pointBorderColor: belowTarget.map((isBelow) => (isBelow ? "#dc2626" : "#f59e0b")),
         },
       ],
     },
@@ -365,11 +455,27 @@ function renderChart(projections) {
             color: theme.axisColor,
           },
         },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const projection = projections[context.dataIndex];
+              if (context.dataset.label === "Target") {
+                return `Target: ${formatCurrency(Number(projection.target || 0))}`;
+              }
+              const currentFund = Number(projection.projected_fund || 0);
+              const contributions = Number(projection.contributions_for_period || 0);
+              return [
+                `Current fund: ${formatCurrency(currentFund)}`,
+                `3-mo contributions: ${formatCurrency(contributions)}`,
+              ];
+            },
+          },
+        },
       },
       scales: {
         x: {
           ticks: {
-            color: theme.axisColor,
+            color: (context) => (belowTarget[context.index] ? "#dc2626" : theme.axisColor),
           },
           grid: {
             color: theme.gridColor,
@@ -392,7 +498,7 @@ function renderChart(projections) {
 
 function renderSummary(result) {
   monthlyTotalEl.textContent = formatCurrency(result.total_monthly);
-  coverageMonthsEl.textContent = `${result.coverage_months.toFixed(2)} months`;
+  coverageMonthsEl.textContent = `${result.coverage_months.toFixed(2)} months (target: ${result.current_target_coverage_months.toFixed(1)})`;
   healthStatusEl.textContent = result.health_status;
   applySummaryCardStatuses(result);
   renderProjectionRows(result.projections);
@@ -422,6 +528,8 @@ async function calculateEmergencyFund() {
   const currentFund = Number(parseCurrencyInput(currentFundInput.value) || 0);
   const monthlyContribution = Number(parseCurrencyInput(monthlyContributionInput.value) || 0);
   const contributionMonths = Number(contributionMonthsInput.value || 0);
+  const currentTargetCoverageMonths = Number(currentTargetCoverageMonthsInput.value || 0);
+  const contributionTargetCoverageMonths = Number(contributionTargetCoverageMonthsInput.value || 0);
 
   try {
     const response = await fetch("/api/emergency-fund/calculate", {
@@ -431,6 +539,8 @@ async function calculateEmergencyFund() {
         current_fund_amount: currentFund,
         monthly_contribution_amount: monthlyContribution,
         contribution_months: contributionMonths,
+        current_target_coverage_months: currentTargetCoverageMonths,
+        contribution_target_coverage_months: contributionTargetCoverageMonths,
         expenses: collectExpenses(),
       }),
     });
@@ -456,13 +566,14 @@ function initialize() {
   currentFundInput.value = formatCurrencyInput(state?.current_fund_amount ?? currentFundInput.value);
   monthlyContributionInput.value = formatCurrencyInput(state?.monthly_contribution_amount ?? monthlyContributionInput.value);
   contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? (contributionMonthsInput.value || 0))));
-  emergencyNotesInput.value = state?.emergency_notes ?? DEFAULT_NOTES;
+  currentTargetCoverageMonthsInput.value = String(Math.max(0, Number(state?.current_target_coverage_months ?? (currentTargetCoverageMonthsInput.value || 0))));
+  contributionTargetCoverageMonthsInput.value = String(Math.max(0, Number(state?.contribution_target_coverage_months ?? (contributionTargetCoverageMonthsInput.value || 0))));
   addRowButton.addEventListener("click", () => {
     createRow({ enabled: true, active_period: "monthly" });
     saveState();
   });
   calculateButton.addEventListener("click", calculateEmergencyFund);
-  [currentFundInput, monthlyContributionInput, contributionMonthsInput, emergencyNotesInput].forEach((input) => {
+  [currentFundInput, monthlyContributionInput, contributionMonthsInput, currentTargetCoverageMonthsInput, contributionTargetCoverageMonthsInput].forEach((input) => {
     input.addEventListener("input", debounceSaveState);
     input.addEventListener("change", saveState);
   });

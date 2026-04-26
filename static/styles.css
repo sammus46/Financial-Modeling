@@ -826,8 +826,28 @@ body.dark-mode #projection-table td.gap-negative {
   gap: 0.8rem;
 }
 
+.emergency-controls .control-card {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .emergency-controls input {
   max-width: 16rem;
+}
+
+.expense-notes-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.expense-note-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.expense-note-row-label {
+  font-size: 0.88rem;
+  font-weight: 650;
 }
 
 .tool-back-btn {
