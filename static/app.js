@@ -1,11 +1,51 @@
-const form = document.getElementById("retirement-form");
+const forms = Array.from(document.querySelectorAll("#retirement-form"));
+const form = forms[0];
 const errorEl = document.getElementById("error");
 const statsBody = document.querySelector("#stats-table tbody");
+const goalProgressEl = document.getElementById("goal-progress");
+const projectedValueEl = document.getElementById("projected-value");
+const targetValueEl = document.getElementById("target-value");
+const goalCardEl = document.getElementById("goal-card");
+const projectedCardEl = document.getElementById("projected-card");
+const targetCardEl = document.getElementById("target-card");
+const submitButton = form?.querySelector("#calculate-btn") || document.getElementById("calculate-btn");
+const currencyInputs = form ? form.querySelectorAll('input[data-currency="true"]') : [];
 
-const savingsRateInput = form.elements["savings_rate"];
-const fixedContributionInput = form.elements["fixed_annual_contribution"];
+let savingsRateInput;
+let fixedContributionInput;
 
 let portfolioChart;
+const DEBUG_PREFIX = "[retirement-ui]";
+
+function logDebug(message, details) {
+  if (details !== undefined) {
+    console.log(`${DEBUG_PREFIX} ${message}`, details);
+    return;
+  }
+  console.log(`${DEBUG_PREFIX} ${message}`);
+}
+
+if (!form) {
+  throw new Error("Unable to initialize app: #retirement-form not found.");
+}
+
+if (forms.length > 1) {
+  logDebug("Detected duplicate #retirement-form nodes from a bad merge; removing extras.", { forms: forms.length });
+  forms.slice(1).forEach((duplicateForm) => duplicateForm.remove());
+}
+
+const panelTops = form.querySelectorAll(".panel-top");
+if (panelTops.length > 1) {
+  logDebug("Detected duplicate header/button blocks; removing extras.", { panelTops: panelTops.length });
+  panelTops.forEach((panel, index) => {
+    if (index > 0) {
+      panel.remove();
+    }
+  });
+}
+
+savingsRateInput = form.elements["savings_rate"];
+fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 const currency = (value) =>
   new Intl.NumberFormat("en-US", {
@@ -34,6 +74,17 @@ function formatMetricValue(metricKey, value) {
 }
 
 function renderChart(ages, postTaxBalances, goalLine) {
+  if (typeof Chart === "undefined") {
+    logDebug("Chart.js is unavailable on window; skipping chart render.");
+    return;
+  }
+
+  logDebug("Rendering chart.", {
+    points: ages.length,
+    balances: postTaxBalances.length,
+    goals: goalLine.length,
+  });
+
   const ctx = document.getElementById("portfolioChart").getContext("2d");
 
   if (portfolioChart) {
@@ -117,6 +168,7 @@ function renderStats(stats) {
     "retirement_goal_achieved_pct",
   ];
 
+  logDebug("Rendering stats table.", { metrics: orderedKeys.length });
   statsBody.innerHTML = orderedKeys
     .map((key) => {
       const row = stats[key];
@@ -129,49 +181,147 @@ function renderStats(stats) {
     .join("");
 }
 
+function renderSummary(stats) {
+  const goalPct = Number(stats.retirement_goal_achieved_pct.actual || 0);
+  logDebug("Rendering summary cards.", { goalPct });
+
+  goalProgressEl.textContent = formatMetricValue(
+    "retirement_goal_achieved_pct",
+    goalPct,
+  );
+  projectedValueEl.textContent = formatMetricValue(
+    "future_value_after_tax_at_retirement",
+    stats.future_value_after_tax_at_retirement.actual,
+  );
+  targetValueEl.textContent = formatMetricValue("target_nest_egg", stats.target_nest_egg.goal);
+
+  const statusClass = goalPct >= 100 ? "status-good" : goalPct >= 75 ? "status-mid" : "status-low";
+  [goalCardEl, projectedCardEl, targetCardEl].forEach((card) => {
+    card.classList.remove("status-good", "status-mid", "status-low");
+    card.classList.add(statusClass);
+  });
+}
+
 function syncContributionMode() {
   const mode = form.elements["contribution_mode"].value;
   const usingPercent = mode === "percent";
 
   savingsRateInput.disabled = !usingPercent;
   fixedContributionInput.disabled = usingPercent;
+}
 
-  if (usingPercent) {
-    fixedContributionInput.value = "0";
-  } else {
-    savingsRateInput.value = "0";
+function parseCurrencyInput(value) {
+  const numeric = value.replace(/[^0-9.]/g, "");
+  return numeric === "" ? "" : numeric;
+}
+
+function formatCurrencyInput(value) {
+  const numeric = parseCurrencyInput(value);
+  if (numeric === "") {
+    return "";
   }
+
+  const [whole, decimal] = numeric.split(".");
+  const withCommas = Number(whole || 0).toLocaleString("en-US");
+  if (decimal !== undefined) {
+    return `$${withCommas}.${decimal.slice(0, 2)}`;
+  }
+  return `$${withCommas}`;
+}
+
+function normalizeCurrencyFields(payload) {
+  currencyInputs.forEach((input) => {
+    payload[input.name] = parseCurrencyInput(payload[input.name] || "0");
+  });
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
   errorEl.textContent = "";
+  submitButton.disabled = true;
+  submitButton.textContent = "Calculating…";
+  logDebug("Calculate clicked; submit flow started.");
 
-  const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
+  try {
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+    normalizeCurrencyFields(payload);
+    const mode = form.elements["contribution_mode"].value;
+    const savingsRateValue = Number(form.elements["savings_rate"].value || 0);
+    const fixedContributionValue = Number(
+      parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"),
+    );
 
-  const response = await fetch("/calculate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+    if (mode === "percent" && savingsRateValue <= 0) {
+      errorEl.textContent = "Savings rate must be greater than 0 when using % mode.";
+      logDebug("Client validation blocked submit: invalid percent savings rate.", { savingsRateValue });
+      return;
+    }
+    if (mode === "fixed" && fixedContributionValue <= 0) {
+      errorEl.textContent = "Fixed annual contribution must be greater than $0 in fixed mode.";
+      logDebug("Client validation blocked submit: invalid fixed contribution.", { fixedContributionValue });
+      return;
+    }
 
-  const data = await response.json();
+    payload.savings_rate = mode === "percent" ? form.elements["savings_rate"].value || "0" : "0";
+    payload.fixed_annual_contribution =
+      mode === "fixed"
+        ? String(fixedContributionValue)
+        : "0";
+    logDebug("Prepared payload.", payload);
 
-  if (!response.ok) {
-    errorEl.textContent = data.error || "Unable to calculate results.";
-    return;
+    const response = await fetch("/calculate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    logDebug("Received /calculate response.", { status: response.status, ok: response.ok });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      logDebug("Failed to parse /calculate response as JSON.", parseError);
+      errorEl.textContent = "Server response was not valid JSON.";
+      return;
+    }
+
+    if (!response.ok) {
+      errorEl.textContent = data.error || "Unable to calculate results.";
+      logDebug("Calculation returned non-OK response.", data);
+      return;
+    }
+
+    logDebug("Calculation succeeded.", {
+      ages: data.ages?.length || 0,
+      postTaxBalances: data.post_tax_balances?.length || 0,
+      hasStats: Boolean(data.stats),
+    });
+    renderChart(data.ages, data.post_tax_balances, data.goal_line);
+    renderStats(data.stats);
+    renderSummary(data.stats);
+  } catch (_error) {
+    logDebug("Unhandled error during calculate flow.", _error);
+    errorEl.textContent = "Something went wrong while calculating. Please try again.";
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Calculate";
+    logDebug("Submit flow finished; button restored.");
   }
-
-  renderChart(data.ages, data.post_tax_balances, data.goal_line);
-  renderStats(data.stats);
 }
 
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
   radio.addEventListener("change", syncContributionMode);
+});
+
+currencyInputs.forEach((input) => {
+  input.value = formatCurrencyInput(input.value);
+  input.addEventListener("input", () => {
+    input.value = formatCurrencyInput(input.value);
+  });
 });
 
 syncContributionMode();
