@@ -294,9 +294,6 @@ def calculate_projection(data: RetirementInputs) -> dict:
         else float("inf")
     )
 
-    additional_required = find_required_additional_contribution(data, target_nest_egg)
-    required_yearly_savings = projection["starting_total_contribution"] + additional_required
-
     yearly_salary_at_retirement = future_portfolio_after_tax * desired_swr
     retirement_goal_achieved_pct = (
         (future_portfolio_after_tax / target_nest_egg) * 100
@@ -331,6 +328,14 @@ def calculate_projection(data: RetirementInputs) -> dict:
                 "actual": projection["brokerage_balance"],
                 "goal": None,
             },
+            "total_balance_at_retirement": {
+                "actual": (
+                    projection["traditional_balance"]
+                    + projection["roth_balance"]
+                    + projection["brokerage_balance"]
+                ),
+                "goal": target_nest_egg,
+            },
             "projected_income_at_retirement": {
                 "actual": projection["projected_income_at_retirement"],
                 "goal": None,
@@ -339,25 +344,9 @@ def calculate_projection(data: RetirementInputs) -> dict:
                 "actual": first_year_retirement_spending,
                 "goal": None,
             },
-            "target_nest_egg": {
-                "actual": target_nest_egg,
-                "goal": target_nest_egg,
-            },
             "actual_withdrawal_rate": {
                 "actual": actual_withdrawal_rate * 100,
                 "goal": data.desired_swr,
-            },
-            "yearly_savings_goal": {
-                "actual": projection["starting_total_contribution"],
-                "goal": required_yearly_savings,
-            },
-            "monthly_savings_goal": {
-                "actual": projection["starting_total_contribution"] / 12,
-                "goal": required_yearly_savings / 12,
-            },
-            "additional_yearly_savings_needed": {
-                "actual": additional_required,
-                "goal": 0.0,
             },
             "yearly_salary_at_retirement": {
                 "actual": yearly_salary_at_retirement,
