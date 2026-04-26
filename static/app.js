@@ -82,6 +82,7 @@ function getChartTheme() {
     gridColor: getComputedColor("--grid-color") || "rgba(148, 163, 184, 0.22)",
     tooltipBg: getComputedColor("--tooltip-bg") || "rgba(15, 23, 42, 0.92)",
     tooltipBorder: getComputedColor("--tooltip-border") || "rgba(148, 163, 184, 0.25)",
+    crossoverColor: getComputedColor("--chart-crossover") || "#16a34a",
     gradientTop: toRgba(balanceLine, 0.35),
     gradientBottom: toRgba(balanceLine, 0.06),
   };
@@ -177,6 +178,38 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
       : selectedChartMode === "progress"
         ? postTaxBalances.map((value, index) => (selectedGoalLine[index] > 0 ? (value / selectedGoalLine[index]) * 100 : 0))
         : postTaxBalances;
+  const benchmarkSeries =
+    selectedChartMode === "gap"
+      ? selectedGoalLine.map(() => 0)
+      : selectedChartMode === "progress"
+        ? selectedGoalLine.map(() => 100)
+        : selectedGoalLine;
+  const gapSeries = chartSeries.map((value, index) => value - (benchmarkSeries[index] ?? 0));
+  const crossoverIndexes = gapSeries.reduce((indexes, value, index) => {
+    if (!Number.isFinite(value)) {
+      return indexes;
+    }
+
+    if (value === 0) {
+      indexes.push(index);
+      return indexes;
+    }
+
+    if (index === 0) {
+      return indexes;
+    }
+
+    const previous = gapSeries[index - 1];
+    if (!Number.isFinite(previous) || previous === 0) {
+      return indexes;
+    }
+
+    if ((previous < 0 && value > 0) || (previous > 0 && value < 0)) {
+      indexes.push(index);
+    }
+
+    return indexes;
+  }, []);
   const chartLabel =
     selectedChartMode === "gap"
       ? "Gap vs Retirement Goal"
@@ -215,18 +248,23 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
           pointHoverRadius: 4,
         },
         {
-          data:
-            selectedChartMode === "gap"
-              ? selectedGoalLine.map(() => 0)
-              : selectedChartMode === "progress"
-                ? selectedGoalLine.map(() => 100)
-                : selectedGoalLine,
+          data: benchmarkSeries,
           borderColor: theme.goalLine,
           borderDash: [8, 6],
           tension: 0,
           pointRadius: 0,
           borderWidth: 2,
           label: goalSeriesLabel,
+        },
+        {
+          label: "Crossover Point",
+          data: ages.map((_, index) => (crossoverIndexes.includes(index) ? chartSeries[index] : null)),
+          borderColor: theme.crossoverColor,
+          backgroundColor: theme.crossoverColor,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointStyle: "circle",
+          showLine: false,
         },
       ],
     },
@@ -243,11 +281,11 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
             display: false,
           },
           ticks: {
-            color: theme.axisColor,
-            font: {
+            color: (tickContext) => (crossoverIndexes.includes(tickContext.index) ? theme.crossoverColor : theme.axisColor),
+            font: (tickContext) => ({
               size: 13,
-              weight: "500",
-            },
+              weight: crossoverIndexes.includes(tickContext.index) ? "700" : "500",
+            }),
           },
         },
         y: {
@@ -282,17 +320,32 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
           borderWidth: 1,
           padding: 10,
           callbacks: {
-            label: (context) =>
-              ` ${context.dataset.label}: ${
+            label: (context) => {
+              if (context.dataset.label === "Crossover Point") {
+                return ` Crossover at ${selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)}`;
+              }
+
+              return ` ${context.dataset.label}: ${
                 selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)
-              }`,
+              }`;
+            },
             afterLabel: (context) => {
+              if (context.dataset.label === "Crossover Point") {
+                return " Actual and goal are equal at this point.";
+              }
+
               if (selectedChartMode === "progress") {
+                if (context.dataset.label === goalSeriesLabel) {
+                  return " Target reference line (100%).";
+                }
                 const progressDelta = context.parsed.y - 100;
                 const direction = progressDelta >= 0 ? "Above" : "Below";
                 return ` ${direction} target by ${Math.abs(progressDelta).toFixed(1)}%`;
               }
               if (selectedChartMode === "gap") {
+                if (context.dataset.label === goalSeriesLabel) {
+                  return " Goal reference line ($0 gap).";
+                }
                 const direction = context.parsed.y >= 0 ? "Ahead" : "Behind";
                 return ` ${direction} goal by ${currency(Math.abs(context.parsed.y))}`;
               }
