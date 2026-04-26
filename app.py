@@ -127,8 +127,14 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     except (KeyError, TypeError, ValueError) as exc:
         raise ValidationError("Please enter valid numeric inputs for all required fields.") from exc
 
+    if not 0 <= current_age <= 120:
+        raise ValidationError("Current age must be between 0 and 120.")
+    if not 1 <= retirement_age <= 130:
+        raise ValidationError("Retirement age must be between 1 and 130.")
     if retirement_age <= current_age:
         raise ValidationError("Retirement age must be greater than current age.")
+    if retirement_age - current_age > 100:
+        raise ValidationError("Years to retirement must be 100 or less.")
     if data.annual_income <= 0:
         raise ValidationError("Annual income must be greater than 0.")
 
@@ -161,6 +167,8 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     for field_name, value in percent_fields.items():
         if not 0 <= value <= 100:
             raise ValidationError(f"{field_name.title()} must be between 0 and 100.")
+    if isclose(data.desired_swr, 0.0):
+        raise ValidationError("Desired SWR must be greater than 0.")
 
     for field_name, value in {
         "traditional assets": data.traditional_assets,
