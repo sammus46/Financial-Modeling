@@ -4,11 +4,7 @@ const statsBody = document.querySelector("#stats-table tbody");
 const goalProgressEl = document.getElementById("goal-progress");
 const projectedValueEl = document.getElementById("projected-value");
 const targetValueEl = document.getElementById("target-value");
-const goalCardEl = document.getElementById("goal-card");
-const projectedCardEl = document.getElementById("projected-card");
-const targetCardEl = document.getElementById("target-card");
-const submitButton = document.getElementById("calculate-btn");
-const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
+const submitButton = form.querySelector('button[type="submit"]');
 
 const savingsRateInput = form.elements["savings_rate"];
 const fixedContributionInput = form.elements["fixed_annual_contribution"];
@@ -138,23 +134,15 @@ function renderStats(stats) {
 }
 
 function renderSummary(stats) {
-  const goalPct = Number(stats.retirement_goal_achieved_pct.actual || 0);
-
   goalProgressEl.textContent = formatMetricValue(
     "retirement_goal_achieved_pct",
-    goalPct,
+    stats.retirement_goal_achieved_pct.actual,
   );
   projectedValueEl.textContent = formatMetricValue(
     "future_value_after_tax_at_retirement",
     stats.future_value_after_tax_at_retirement.actual,
   );
   targetValueEl.textContent = formatMetricValue("target_nest_egg", stats.target_nest_egg.goal);
-
-  const statusClass = goalPct >= 100 ? "status-good" : goalPct >= 75 ? "status-mid" : "status-low";
-  [goalCardEl, projectedCardEl, targetCardEl].forEach((card) => {
-    card.classList.remove("status-good", "status-mid", "status-low");
-    card.classList.add(statusClass);
-  });
 }
 
 function syncContributionMode() {
@@ -170,26 +158,6 @@ function parseCurrencyInput(value) {
   return numeric === "" ? "" : numeric;
 }
 
-function formatCurrencyInput(value) {
-  const numeric = parseCurrencyInput(value);
-  if (numeric === "") {
-    return "";
-  }
-
-  const [whole, decimal] = numeric.split(".");
-  const withCommas = Number(whole || 0).toLocaleString("en-US");
-  if (decimal !== undefined) {
-    return `$${withCommas}.${decimal.slice(0, 2)}`;
-  }
-  return `$${withCommas}`;
-}
-
-function normalizeCurrencyFields(payload) {
-  currencyInputs.forEach((input) => {
-    payload[input.name] = parseCurrencyInput(payload[input.name] || "0");
-  });
-}
-
 async function handleSubmit(event) {
   event.preventDefault();
   errorEl.textContent = "";
@@ -199,11 +167,6 @@ async function handleSubmit(event) {
   try {
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
-    normalizeCurrencyFields(payload);
-    payload.savings_rate = form.elements["savings_rate"].value || "0";
-    payload.fixed_annual_contribution = parseCurrencyInput(
-      form.elements["fixed_annual_contribution"].value || "0",
-    );
 
     const response = await fetch("/calculate", {
       method: "POST",
