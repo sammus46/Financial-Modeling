@@ -42,6 +42,8 @@ def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
     value = payload.get(key, default)
     if value is None or value == "":
         return default
+    if isinstance(value, str):
+        value = value.replace(",", "").replace("$", "").strip()
     return float(value)
 
 
@@ -337,13 +339,28 @@ def index() -> str:
 @app.route("/calculate", methods=["POST"])
 def calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
+    app.logger.info(
+        "Calculate request received.",
+        extra={
+            "payload_keys": sorted(payload.keys()),
+            "contribution_mode": payload.get("contribution_mode"),
+        },
+    )
 
     try:
         data = parse_inputs(payload)
         result = calculate_projection(data)
     except ValidationError as exc:
+        app.logger.warning("Calculate validation error: %s", str(exc))
         return jsonify({"error": str(exc)}), 400
 
+    app.logger.info(
+        "Calculate response prepared.",
+        extra={
+            "ages_count": len(result.get("ages", [])),
+            "post_tax_count": len(result.get("post_tax_balances", [])),
+        },
+    )
     return jsonify(result), 200
 
 
