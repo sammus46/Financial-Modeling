@@ -1,5 +1,4 @@
-const forms = Array.from(document.querySelectorAll("#retirement-form"));
-const form = forms[0];
+const form = document.getElementById("retirement-form");
 const errorEl = document.getElementById("error");
 const statsBody = document.querySelector("#stats-table tbody");
 const goalProgressEl = document.getElementById("goal-progress");
@@ -10,12 +9,11 @@ const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
 const submitButton = document.getElementById("calculate-btn");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
-const submitButton = form.querySelector('button[type="submit"]');
 
 let savingsRateInput;
 let fixedContributionInput;
-
 let portfolioChart;
+
 const DEBUG_PREFIX = "[retirement-ui]";
 
 function logDebug(message, details) {
@@ -40,10 +38,7 @@ function formatMetricValue(metricKey, value) {
     return "—";
   }
 
-  const percentMetrics = new Set([
-    "actual_withdrawal_rate",
-    "retirement_goal_achieved_pct",
-  ]);
+  const percentMetrics = new Set(["actual_withdrawal_rate", "retirement_goal_achieved_pct"]);
 
   if (percentMetrics.has(metricKey)) {
     return percent(Number(value));
@@ -58,13 +53,19 @@ function renderChart(ages, postTaxBalances, goalLine) {
     return;
   }
 
+  const chartEl = document.getElementById("portfolioChart");
+  if (!chartEl) {
+    logDebug("Chart canvas is missing; skipping chart render.");
+    return;
+  }
+
   logDebug("Rendering chart.", {
     points: ages.length,
     balances: postTaxBalances.length,
     goals: goalLine.length,
   });
 
-  const ctx = document.getElementById("portfolioChart").getContext("2d");
+  const ctx = chartEl.getContext("2d");
 
   if (portfolioChart) {
     portfolioChart.destroy();
@@ -166,9 +167,6 @@ function renderSummary(stats) {
 
   goalProgressEl.textContent = formatMetricValue(
     "retirement_goal_achieved_pct",
-    goalPct,
-  goalProgressEl.textContent = formatMetricValue(
-    "retirement_goal_achieved_pct",
     stats.retirement_goal_achieved_pct.actual,
   );
   projectedValueEl.textContent = formatMetricValue(
@@ -230,9 +228,7 @@ async function handleSubmit(event) {
     normalizeCurrencyFields(payload);
     const mode = form.elements["contribution_mode"].value;
     const savingsRateValue = Number(form.elements["savings_rate"].value || 0);
-    const fixedContributionValue = Number(
-      parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"),
-    );
+    const fixedContributionValue = Number(parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"));
 
     if (mode === "percent" && savingsRateValue <= 0) {
       errorEl.textContent = "Savings rate must be greater than 0 when using % mode.";
@@ -246,10 +242,7 @@ async function handleSubmit(event) {
     }
 
     payload.savings_rate = mode === "percent" ? form.elements["savings_rate"].value || "0" : "0";
-    payload.fixed_annual_contribution =
-      mode === "fixed"
-        ? String(fixedContributionValue)
-        : "0";
+    payload.fixed_annual_contribution = mode === "fixed" ? String(fixedContributionValue) : "0";
     logDebug("Prepared payload.", payload);
 
     const response = await fetch("/calculate", {
@@ -282,13 +275,6 @@ async function handleSubmit(event) {
       hasStats: Boolean(data.stats),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      errorEl.textContent = data.error || "Unable to calculate results.";
-      return;
-    }
-
     renderChart(data.ages, data.post_tax_balances, data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);
@@ -301,6 +287,9 @@ async function handleSubmit(event) {
     logDebug("Submit flow finished; button restored.");
   }
 }
+
+savingsRateInput = form.elements["savings_rate"];
+fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
