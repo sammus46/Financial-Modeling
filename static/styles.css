@@ -32,7 +32,7 @@ body.dark-mode {
   --bg-main-1: #0b1220;
   --bg-main-2: #111827;
   --text-primary: #e2e8f0;
-  --muted-text: #94a3b8;
+  --muted-text: #a8b4c7;
   --border-soft: #334155;
   --panel-bg: rgba(15, 23, 42, 0.92);
   --card-bg: rgba(15, 23, 42, 0.98);
@@ -112,10 +112,10 @@ body {
   position: absolute;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: -14px;
-  height: 14px;
+  bottom: -20px;
+  height: 20px;
   pointer-events: none;
-  background: linear-gradient(180deg, color-mix(in oklab, var(--card-bg) 90%, transparent) 0%, transparent 100%);
+  background: linear-gradient(180deg, var(--card-bg) 0%, color-mix(in oklab, var(--card-bg) 82%, transparent) 60%, transparent 100%);
 }
 
 .panel-top-card h1 {
@@ -137,6 +137,19 @@ body {
   padding-top: 0.2rem;
   padding-bottom: 0.5rem;
 }
+
+.input-grid::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: block;
+  height: 1rem;
+  margin-bottom: -1rem;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--card-bg) 0%, color-mix(in oklab, var(--card-bg) 65%, transparent) 70%, transparent 100%);
+}
+
 
 .form-section {
   border: 1px solid var(--border-soft);
@@ -328,7 +341,7 @@ button:disabled {
 
 .summary-label {
   margin: 0;
-  color: color-mix(in oklab, var(--text-primary) 88%, var(--muted-text) 12%);
+  color: color-mix(in oklab, var(--text-primary) 68%, var(--muted-text) 32%);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -412,4 +425,23 @@ body.dark-mode td.metric-actual.status-low {
   .summary-grid {
     grid-template-columns: 1fr;
   }
+}
+
+body.dark-mode .summary-card.status-good {
+  background: #052e26;
+  border-color: #0e9384;
+}
+
+body.dark-mode .summary-card.status-mid {
+  background: #3b1f08;
+  border-color: #b45309;
+}
+
+body.dark-mode .summary-card.status-low {
+  background: #3a1113;
+  border-color: #b42318;
+}
+
+body.dark-mode .summary-label {
+  color: #dbe4f5;
 }
