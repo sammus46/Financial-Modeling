@@ -300,6 +300,13 @@ def calculate_projection(data: RetirementInputs) -> dict:
         if target_nest_egg not in (0, float("inf"))
         else 0.0
     )
+    required_extra_annual_contribution = find_required_additional_contribution(data, target_nest_egg)
+    total_annual_contribution_needed = projection["starting_total_contribution"] + required_extra_annual_contribution
+    savings_rate_needed_pct = (
+        (total_annual_contribution_needed / data.annual_income) * 100
+        if data.annual_income > 0
+        else None
+    )
 
     goal_line = [target_nest_egg for _ in projection["ages"]]
 
@@ -356,6 +363,12 @@ def calculate_projection(data: RetirementInputs) -> dict:
                 "actual": retirement_goal_achieved_pct,
                 "goal": 100.0,
             },
+        },
+        "insights": {
+            "starting_total_annual_contribution": projection["starting_total_contribution"],
+            "required_additional_annual_contribution": required_extra_annual_contribution,
+            "total_annual_contribution_needed": total_annual_contribution_needed,
+            "estimated_savings_rate_needed_pct": savings_rate_needed_pct,
         },
     }
 

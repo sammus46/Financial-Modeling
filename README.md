@@ -136,5 +136,7 @@ This version keeps the model straightforward while adding a few practical levers
   - Roth: tax-free,
   - brokerage: taxed by the user-provided retirement tax rate.
 - Portfolio chart shows post-tax portfolio value and a flat retirement goal line.
+- Portfolio chart supports three modes: balance, goal gap, and goal progress percent.
+- Suggested Improvements panel now gives personalized next steps, including estimated additional annual savings needed to hit target.
 - Retirement spending target is based on today's income, retirement spending %, and inflation to retirement age.
 - Retirement spending target is still based on today's income, retirement spending %, and inflation to retirement age.
