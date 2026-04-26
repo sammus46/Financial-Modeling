@@ -135,6 +135,52 @@
             <tbody></tbody>
           </table>
         </section>
+    <main class="container">
+      <h1>Retirement Calculator Visualizer</h1>
+      <p class="subtitle">Simple assumptions, yearly projection, quick stats.</p>
+
+      <form id="retirement-form" class="input-grid">
+        <label>Current age <input type="number" name="current_age" value="30" min="0" required /></label>
+        <label>Desired retirement age <input type="number" name="retirement_age" value="65" min="1" required /></label>
+        <label>Traditional assets ($) <input type="number" name="traditional_assets" value="50000" min="0" step="0.01" required /></label>
+        <label>Roth assets ($) <input type="number" name="roth_assets" value="25000" min="0" step="0.01" required /></label>
+        <label>Brokerage assets ($) <input type="number" name="brokerage_assets" value="10000" min="0" step="0.01" required /></label>
+
+        <label>Annual income ($) <input type="number" name="annual_income" value="120000" min="1" step="0.01" required /></label>
+        <label>Expected yearly salary growth (%) <input type="number" name="salary_growth_rate" value="3" min="0" max="100" step="0.01" required /></label>
+        <label>% saved of paycheck <input type="number" name="savings_rate" value="20" min="0" max="100" step="0.01" required /></label>
+        <label>Fixed annual contribution ($) <input type="number" name="fixed_annual_contribution" value="0" min="0" step="0.01" required /></label>
+
+        <label>Inflation rate (%) <input type="number" name="inflation_rate" value="2.5" min="0" max="100" step="0.01" required /></label>
+        <label>Traditional return rate (%) <input type="number" name="traditional_return_rate" value="7" min="0" max="100" step="0.01" required /></label>
+        <label>Roth return rate (%) <input type="number" name="roth_return_rate" value="7" min="0" max="100" step="0.01" required /></label>
+        <label>Brokerage return rate (%) <input type="number" name="brokerage_return_rate" value="7" min="0" max="100" step="0.01" required /></label>
+
+        <label>% of current income to spend in retirement <input type="number" name="retirement_spend_rate" value="70" min="0" max="100" step="0.01" required /></label>
+        <label>Desired SWR (%) <input type="number" name="desired_swr" value="4" min="0" max="100" step="0.01" required /></label>
+        <label>Traditional retirement tax rate (%) <input type="number" name="traditional_retirement_tax_rate" value="22" min="0" max="100" step="0.01" required /></label>
+        <label>Brokerage retirement tax rate (%) <input type="number" name="brokerage_retirement_tax_rate" value="15" min="0" max="100" step="0.01" required /></label>
+
+        <div class="actions">
+          <button type="submit">Calculate</button>
+        </div>
+      </form>
+
+      <p id="error" class="error"></p>
+
+      <section class="panel">
+        <h2>Portfolio Over Time (Pre-Tax Total)</h2>
+        <canvas id="portfolioChart"></canvas>
+      </section>
+
+      <section class="panel">
+        <h2>Retirement Stats</h2>
+        <table id="stats-table">
+          <thead>
+            <tr><th>Metric</th><th>Value</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </section>
     </main>
 
