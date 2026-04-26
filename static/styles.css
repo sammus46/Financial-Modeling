@@ -32,14 +32,6 @@ body {
   box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
 }
 
-.panel-top {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #fff;
-  padding-bottom: 0.5rem;
-}
-
 .subtitle {
   margin-top: -0.4rem;
   color: #57606a;
@@ -114,22 +106,6 @@ input {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-input:disabled {
-  background: #f2f5f9;
-  color: #7a8697;
-  cursor: not-allowed;
-}
-
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
 input:focus-visible {
   outline: none;
   border-color: #4c7df5;
@@ -193,21 +169,6 @@ button:disabled {
   border-radius: 12px;
   padding: 0.75rem;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-}
-
-.summary-card.status-good {
-  background: #ecfdf3;
-  border-color: #abefc6;
-}
-
-.summary-card.status-mid {
-  background: #fffaeb;
-  border-color: #fedf89;
-}
-
-.summary-card.status-low {
-  background: #fef3f2;
-  border-color: #fecdca;
 }
 
 .summary-label {
