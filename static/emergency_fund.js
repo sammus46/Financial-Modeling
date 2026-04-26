@@ -425,60 +425,169 @@ function getChartTheme() {
 function renderChart(projections) {
   const chartEl = document.getElementById("emergencyChart");
   const labels = projections.map((item) => getProjectionLabel(item.months));
-  const targets = projections.map((item) => item.target);
+  const targets = projections.map((item) => Number(item.target || 0));
   const currentSeries = projections.map((item) => Number(item.projected_fund || 0));
-  const belowTarget = projections.map((item) => Number(item.projected_fund || 0) < Number(item.target || 0));
+  const gapSeries = currentSeries.map((value, index) => value - targets[index]);
+  const firstUnderTargetIndex = gapSeries.findIndex((value) => value < 0);
+  const crossoverPointSeries = currentSeries.map((_, index) => (index === firstUnderTargetIndex ? currentSeries[index] : null));
   const theme = getChartTheme();
+  const areaBandPlugin = {
+    id: "emergencyAreaBand",
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      if (!chartArea) {
+        return;
+      }
+      const targetMeta = chart.getDatasetMeta(0);
+      const actualMeta = chart.getDatasetMeta(1);
+      const targetPoints = targetMeta.data || [];
+      const actualPoints = actualMeta.data || [];
+      if (targetPoints.length < 2 || actualPoints.length < 2) {
+        return;
+      }
+
+      const drawBand = (startX, endX, startActualY, endActualY, startTargetY, endTargetY, color) => {
+        if (!Number.isFinite(startX) || !Number.isFinite(endX)) {
+          return;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(startX, startActualY);
+        ctx.lineTo(endX, endActualY);
+        ctx.lineTo(endX, endTargetY);
+        ctx.lineTo(startX, startTargetY);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      };
+
+      for (let i = 0; i < actualPoints.length - 1; i += 1) {
+        const p1 = actualPoints[i];
+        const p2 = actualPoints[i + 1];
+        const t1 = targetPoints[i];
+        const t2 = targetPoints[i + 1];
+        if (![p1, p2, t1, t2].every(Boolean)) {
+          continue;
+        }
+
+        const startGap = gapSeries[i];
+        const endGap = gapSeries[i + 1];
+        const red = "rgba(220, 38, 38, 0.24)";
+        const green = "rgba(22, 163, 74, 0.22)";
+        const orange = "rgba(249, 115, 22, 0.24)";
+
+        if (startGap === 0 && endGap === 0) {
+          drawBand(p1.x, p2.x, p1.y, p2.y, t1.y, t2.y, orange);
+          continue;
+        }
+
+        if (startGap === 0 || endGap === 0) {
+          const color = startGap < 0 || endGap < 0 ? red : startGap > 0 || endGap > 0 ? green : orange;
+          drawBand(p1.x, p2.x, p1.y, p2.y, t1.y, t2.y, color);
+          continue;
+        }
+
+        if ((startGap < 0 && endGap < 0) || (startGap > 0 && endGap > 0)) {
+          drawBand(p1.x, p2.x, p1.y, p2.y, t1.y, t2.y, startGap < 0 ? red : green);
+          continue;
+        }
+
+        const ratio = Math.abs(startGap) / (Math.abs(startGap) + Math.abs(endGap));
+        const crossX = p1.x + ((p2.x - p1.x) * ratio);
+        const crossActualY = p1.y + ((p2.y - p1.y) * ratio);
+        const crossTargetY = t1.y + ((t2.y - t1.y) * ratio);
+        const firstColor = startGap < 0 ? red : green;
+        const secondColor = endGap < 0 ? red : green;
+
+        drawBand(p1.x, crossX, p1.y, crossActualY, t1.y, crossTargetY, firstColor);
+        drawBand(crossX, p2.x, crossActualY, p2.y, crossTargetY, t2.y, secondColor);
+      }
+    },
+  };
 
   if (emergencyChart) {
     emergencyChart.destroy();
   }
 
   emergencyChart = new Chart(chartEl, {
-    type: "bar",
+    type: "line",
+    plugins: [areaBandPlugin],
     data: {
       labels,
       datasets: [
         {
           label: "Target",
           data: targets,
-          backgroundColor: "rgba(37, 99, 235, 0.55)",
           borderColor: "#2563eb",
-          borderWidth: 1,
+          borderWidth: 2,
+          tension: 0.25,
+          pointRadius: 0,
+          pointHoverRadius: 0,
         },
         {
-          label: "Current Fund",
-          type: "line",
+          label: "Actual Funds",
           data: currentSeries,
           borderColor: "#f59e0b",
           borderWidth: 2,
-          pointRadius: belowTarget.map((isBelow) => (isBelow ? 5 : 2)),
-          pointBackgroundColor: belowTarget.map((isBelow) => (isBelow ? "#dc2626" : "#f59e0b")),
-          pointBorderColor: belowTarget.map((isBelow) => (isBelow ? "#dc2626" : "#f59e0b")),
+          tension: 0.25,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: "#f59e0b",
+          pointBorderColor: "#f59e0b",
+        },
+        {
+          label: "Under Target Marker",
+          data: crossoverPointSeries,
+          borderColor: "#dc2626",
+          backgroundColor: "#dc2626",
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          pointStyle: "circle",
+          showLine: false,
+          tooltip: { enabled: false },
         },
       ],
     },
     options: {
       responsive: true,
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
       plugins: {
         legend: {
           labels: {
             color: theme.axisColor,
+            filter: (legendItem) => legendItem.text !== "Under Target Marker",
           },
         },
         tooltip: {
           callbacks: {
             label(context) {
               const projection = projections[context.dataIndex];
+              if (context.dataset.label === "Under Target Marker") {
+                return null;
+              }
               if (context.dataset.label === "Target") {
                 return `Target: ${formatCurrency(Number(projection.target || 0))}`;
               }
               const currentFund = Number(projection.projected_fund || 0);
-              const contributions = Number(projection.contributions_for_period || 0);
-              return [
-                `Current fund: ${formatCurrency(currentFund)}`,
-                `3-mo contributions: ${formatCurrency(contributions)}`,
-              ];
+              return `Actual funds: ${formatCurrency(currentFund)}`;
+            },
+            afterBody(items) {
+              const index = items?.[0]?.dataIndex ?? -1;
+              if (index < 0) {
+                return "";
+              }
+              const gap = gapSeries[index];
+              if (gap > 0) {
+                return `Surplus: ${formatCurrency(gap)}`;
+              }
+              if (gap < 0) {
+                return `Gap: ${formatCurrency(Math.abs(gap))}`;
+              }
+              return "On target: $0 (moderately healthy)";
             },
           },
         },
@@ -486,7 +595,11 @@ function renderChart(projections) {
       scales: {
         x: {
           ticks: {
-            color: (context) => (belowTarget[context.index] ? "#dc2626" : theme.axisColor),
+            color: (context) => (context.index === firstUnderTargetIndex ? "#dc2626" : theme.axisColor),
+            font: (context) => ({
+              size: 12,
+              weight: context.index === firstUnderTargetIndex ? "700" : "500",
+            }),
           },
           grid: {
             color: theme.gridColor,
