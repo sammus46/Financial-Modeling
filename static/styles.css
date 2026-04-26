@@ -501,6 +501,16 @@ body.dark-mode td.metric-actual.status-low {
   font-size: 0.85rem;
 }
 
+.suggestions-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+  color: color-mix(in oklab, var(--text-primary) 86%, var(--muted-text) 14%);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 1024px) {
   .app-layout {
     grid-template-columns: 1fr;

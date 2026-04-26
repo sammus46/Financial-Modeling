@@ -7,6 +7,7 @@ const targetValueEl = document.getElementById("target-value");
 const goalCardEl = document.getElementById("goal-card");
 const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
+const suggestionsListEl = document.getElementById("suggestions-list");
 const submitButton = document.getElementById("calculate-btn");
 const themeToggleButton = document.getElementById("theme-toggle");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
@@ -168,10 +169,21 @@ function renderChart(ages, postTaxBalances, goalLine) {
   const chartSeries =
     selectedChartMode === "gap"
       ? postTaxBalances.map((value, index) => value - goalLine[index])
-      : postTaxBalances;
-  const chartLabel = selectedChartMode === "gap" ? "Gap vs Retirement Goal" : "Portfolio Value (Post-Tax)";
+      : selectedChartMode === "progress"
+        ? postTaxBalances.map((value, index) => (goalLine[index] > 0 ? (value / goalLine[index]) * 100 : 0))
+        : postTaxBalances;
+  const chartLabel =
+    selectedChartMode === "gap"
+      ? "Gap vs Retirement Goal"
+      : selectedChartMode === "progress"
+        ? "Goal Progress"
+        : "Portfolio Value (Post-Tax)";
   const yTickFormatter =
-    selectedChartMode === "gap" ? (value) => `${value >= 0 ? "+" : "-"}${currency(Math.abs(value))}` : (value) => currency(value);
+    selectedChartMode === "gap"
+      ? (value) => `${value >= 0 ? "+" : "-"}${currency(Math.abs(value))}`
+      : selectedChartMode === "progress"
+        ? (value) => `${Number(value).toFixed(0)}%`
+        : (value) => currency(value);
   const ctx = chartEl.getContext("2d");
   const balanceGradient = ctx.createLinearGradient(0, 0, 0, chartEl.height || 320);
   balanceGradient.addColorStop(0, theme.gradientTop);
@@ -199,7 +211,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
         },
         {
           label: "Retirement Goal",
-          data: selectedChartMode === "gap" ? goalLine.map(() => 0) : goalLine,
+          data:
+            selectedChartMode === "gap" ? goalLine.map(() => 0) : selectedChartMode === "progress" ? goalLine.map(() => 100) : goalLine,
           borderColor: theme.goalLine,
           borderDash: [8, 6],
           tension: 0,
@@ -260,8 +273,14 @@ function renderChart(ages, postTaxBalances, goalLine) {
           borderWidth: 1,
           padding: 10,
           callbacks: {
-            label: (context) => ` ${context.dataset.label}: ${currency(context.parsed.y)}`,
+            label: (context) =>
+              ` ${context.dataset.label}: ${
+                selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)
+              }`,
             afterLabel: (context) => {
+              if (selectedChartMode === "progress") {
+                return context.parsed.y >= 100 ? " On or above target" : " Below target";
+              }
               if (selectedChartMode === "gap") {
                 return context.parsed.y >= 0 ? " Ahead of plan" : " Behind plan";
               }
@@ -357,6 +376,44 @@ function renderSummary(stats) {
     card.classList.remove("status-good", "status-mid", "status-low");
     card.classList.add(statusClass);
   });
+}
+
+function renderSuggestions(stats, insights) {
+  if (!suggestionsListEl) {
+    return;
+  }
+
+  const suggestions = [];
+  const goalPct = Number(stats.retirement_goal_achieved_pct.actual || 0);
+  const extraContribution = Number(insights?.required_additional_annual_contribution || 0);
+  const neededSavingsRate = Number(insights?.estimated_savings_rate_needed_pct || 0);
+  const withdrawalRate = Number(stats.actual_withdrawal_rate.actual || 0);
+  const desiredSwr = Number(stats.actual_withdrawal_rate.goal || 0);
+
+  if (goalPct < 100) {
+    suggestions.push(
+      `To close your goal gap, consider adding about ${currency(extraContribution)} more per year (total annual saving ~${currency(
+        Number(insights?.total_annual_contribution_needed || 0),
+      )}, about ${neededSavingsRate.toFixed(1)}% of current income).`,
+    );
+  } else {
+    suggestions.push("You are on track for your target. Consider stress testing with lower return assumptions.");
+  }
+
+  if (withdrawalRate > desiredSwr) {
+    suggestions.push(
+      `Your projected withdrawal rate (${percent(withdrawalRate)}) is above your desired SWR (${percent(
+        desiredSwr,
+      )}); consider a later retirement age or higher annual contributions.`,
+    );
+  } else {
+    suggestions.push("Your withdrawal rate is within your desired SWR range in this base case.");
+  }
+
+  suggestions.push("Use the new “Goal progress %” chart mode to see exactly when your plan crosses 100% of goal.");
+  suggestions.push("Compare Balance, Goal gap, and Goal progress % together to validate both path and destination.");
+
+  suggestionsListEl.innerHTML = suggestions.map((item) => `<li>${item}</li>`).join("");
 }
 
 function syncContributionMode() {
@@ -565,6 +622,7 @@ async function handleSubmit(event) {
     renderChart(data.ages, data.post_tax_balances, data.goal_line);
     renderStats(data.stats);
     renderSummary(data.stats);
+    renderSuggestions(data.stats, data.insights);
     saveFormValues();
   } catch (_error) {
     logDebug("Unhandled error during calculate flow.", _error);
