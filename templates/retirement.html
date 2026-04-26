@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retirement Calculator Visualizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <main class="app-layout">
+      <aside class="inputs-panel">
+        <section class="panel-top-card">
+          <h1>Retirement Calculator</h1>
+          <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
+          <div class="actions actions-top">
+            <button id="calculate-btn" form="retirement-form" type="submit">Calculate</button>
+            <button id="theme-toggle" type="button" class="secondary-btn" aria-pressed="false">Dark mode</button>
+          </div>
+        </section>
+
+        <div class="inputs-scroll">
+          <form id="retirement-form" class="input-grid">
+            <details class="form-section" open>
+            <summary><h2>Personal Characteristics</h2></summary>
+            <div class="section-body">
+              <label for="current_age">
+                Current age <span class="field-tag required">Required</span>
+                <input id="current_age" type="number" name="current_age" value="30" min="0" required />
+              </label>
+              <label for="retirement_age">
+                Desired retirement age <span class="field-tag required">Required</span>
+                <input id="retirement_age" type="number" name="retirement_age" value="65" min="1" required />
+              </label>
+              <label for="annual_income">
+                Annual income ($) <span class="field-tag required">Required</span>
+                <input id="annual_income" type="text" name="annual_income" value="120000" inputmode="decimal" data-currency="true" required aria-describedby="annual_income_help" />
+              </label>
+              <p id="annual_income_help" class="field-help">Use your gross yearly income before taxes.</p>
+              <label for="salary_growth_rate">
+                Expected yearly salary growth (%) <span class="field-tag optional">Advanced</span>
+                <input id="salary_growth_rate" type="number" name="salary_growth_rate" value="3" min="0" max="100" step="0.01" aria-describedby="salary_growth_rate_help" />
+              </label>
+              <p id="salary_growth_rate_help" class="field-help">Advanced: yearly increase in earned income before retirement.</p>
+            </div>
+            </details>
+
+            <details class="form-section" open>
+            <summary><h2>Investment Characteristics</h2></summary>
+            <div class="section-body">
+              <label for="traditional_assets">
+                Traditional assets ($) <span class="field-tag optional">Advanced</span>
+                <input id="traditional_assets" type="text" name="traditional_assets" value="50000" inputmode="decimal" data-currency="true" />
+              </label>
+              <label for="roth_assets">
+                Roth assets ($) <span class="field-tag optional">Advanced</span>
+                <input id="roth_assets" type="text" name="roth_assets" value="25000" inputmode="decimal" data-currency="true" />
+              </label>
+              <label for="brokerage_assets">
+                Brokerage assets ($) <span class="field-tag optional">Advanced</span>
+                <input id="brokerage_assets" type="text" name="brokerage_assets" value="10000" inputmode="decimal" data-currency="true" />
+              </label>
+
+              <fieldset class="contribution-mode">
+                <legend>Contribution method <span class="field-tag required">Required</span></legend>
+                <p class="field-help">Pick one method. Only the active method is used in calculations.</p>
+                <label class="radio">
+                  <input type="radio" name="contribution_mode" value="percent" checked />
+                  Use % of income saved
+                </label>
+                <label for="savings_rate">
+                  % of income saved <span class="field-tag required">Required in % mode</span>
+                  <input id="savings_rate" type="number" name="savings_rate" value="20" min="0" max="100" step="0.01" />
+                </label>
+
+                <label class="radio">
+                  <input type="radio" name="contribution_mode" value="fixed" />
+                  Use fixed annual contribution
+                </label>
+                <label for="fixed_annual_contribution">
+                  Fixed annual contribution ($) <span class="field-tag required">Required in fixed mode</span>
+                  <input id="fixed_annual_contribution" type="text" name="fixed_annual_contribution" value="0" inputmode="decimal" data-currency="true" />
+                </label>
+              </fieldset>
+
+              <label for="traditional_return_rate">
+                Traditional pre-tax return rate (%) <span class="field-tag optional">Advanced</span>
+                <input id="traditional_return_rate" type="number" name="traditional_return_rate" value="10" min="0" max="100" step="0.01" />
+              </label>
+              <label for="roth_return_rate">
+                Roth pre-tax return rate (%) <span class="field-tag optional">Advanced</span>
+                <input id="roth_return_rate" type="number" name="roth_return_rate" value="10" min="0" max="100" step="0.01" />
+              </label>
+              <label for="brokerage_return_rate">
+                Brokerage pre-tax return rate (%) <span class="field-tag optional">Advanced</span>
+                <input id="brokerage_return_rate" type="number" name="brokerage_return_rate" value="10" min="0" max="100" step="0.01" />
+              </label>
+            </div>
+            </details>
+
+            <details class="form-section" open>
+            <summary><h2>Retirement Characteristics</h2></summary>
+            <div class="section-body">
+              <label for="inflation_rate">
+                Inflation rate (%) <span class="field-tag required">Required</span>
+                <input id="inflation_rate" type="number" name="inflation_rate" value="2.5" min="0" max="100" step="0.01" required />
+              </label>
+              <label for="retirement_spend_rate">
+                % of current income to spend in retirement <span class="field-tag required">Required</span>
+                <input id="retirement_spend_rate" type="number" name="retirement_spend_rate" value="70" min="0" max="100" step="0.01" required />
+              </label>
+              <label for="desired_swr">
+                Desired SWR (%) <span class="field-tag required">Required</span>
+                <input id="desired_swr" type="number" name="desired_swr" value="4" min="0" max="100" step="0.01" required />
+              </label>
+              <label for="traditional_retirement_tax_rate">
+                Traditional retirement tax rate (%) <span class="field-tag optional">Advanced</span>
+                <input id="traditional_retirement_tax_rate" type="number" name="traditional_retirement_tax_rate" value="22" min="0" max="100" step="0.01" />
+              </label>
+              <label for="brokerage_retirement_tax_rate">
+                Brokerage retirement tax rate (%) <span class="field-tag optional">Advanced</span>
+                <input id="brokerage_retirement_tax_rate" type="number" name="brokerage_retirement_tax_rate" value="15" min="0" max="100" step="0.01" />
+              </label>
+            </div>
+            </details>
+          </form>
+        </div>
+      </aside>
+
+      <section class="results-panel">
+        <p id="error" class="error" role="alert" aria-live="polite"></p>
+        <section class="summary-grid" id="summary-grid">
+          <article class="summary-card" id="goal-card">
+            <p class="summary-label">Goal progress</p>
+            <p id="goal-progress" class="summary-value">—</p>
+          </article>
+          <article class="summary-card" id="projected-card">
+            <p class="summary-label">Projected post-tax value</p>
+            <p id="projected-value" class="summary-value">—</p>
+          </article>
+          <article class="summary-card" id="target-card">
+            <p class="summary-label">Total balance goal</p>
+            <p id="target-value" class="summary-value">—</p>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Portfolio Over Time (Post-Tax)</h2>
+            <div class="chart-controls-stack">
+              <button
+                type="button"
+                id="goal-mode-toggle"
+                class="goal-mode-toggle"
+                role="switch"
+                aria-label="Goal mode"
+                aria-checked="false"
+              >
+                Static
+              </button>
+              <div class="viz-controls" role="group" aria-label="Chart view mode">
+                <button type="button" class="viz-toggle is-active" data-chart-mode="balance">Balance</button>
+                <button type="button" class="viz-toggle" data-chart-mode="gap">Goal gap</button>
+                <button type="button" class="viz-toggle" data-chart-mode="progress">Goal progress %</button>
+              </div>
+            </div>
+          </div>
+          <canvas id="portfolioChart"></canvas>
+        </section>
+
+        <section class="panel">
+          <h2>Retirement Stats</h2>
+          <p class="table-note">
+            Projected salary is your estimated earned income right before retirement. Yearly salary (SWR) is the
+            sustainable annual amount your portfolio can support in retirement.
+          </p>
+          <table id="stats-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Actual</th>
+                <th>Goal</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='retirement.js', v=static_version) }}"></script>
+  </body>
+</html>

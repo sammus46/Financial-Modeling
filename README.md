@@ -1,10 +1,10 @@
-# Retirement Calculator Visualizer
+# Financial Modeling App Suite
 
-A simple Flask + vanilla JS retirement calculator for learning:
+A Flask + vanilla JS financial modeling suite with multiple tools:
 
 - Input your current financial assumptions.
-- Visualize portfolio growth year by year.
-- Review retirement metrics like withdrawal rate, retirement income, and savings goals.
+- Launch the Retirement Planner or Emergency Fund Calculator from a dashboard.
+- Visualize portfolio/fund projections with charts and goal metrics.
 
 ## Run locally
 
@@ -17,12 +17,18 @@ python app.py
 
 Open `http://127.0.0.1:5000`.
 
+Routes:
+- `/` dashboard
+- `/apps/retirement` retirement planner
+- `/apps/emergency-fund` emergency fund calculator
+
 ## Smoke test
 
 Run a quick backend/UI wiring smoke test:
 - checks `GET /` returns 200
-- checks cache-busted assets are present in HTML (`styles.css?v=`, `app.js?v=`)
-- checks `POST /calculate` succeeds for both contribution modes (`percent` + `fixed`)
+- checks app routes load (`/apps/retirement`, `/apps/emergency-fund`)
+- checks retirement calculation succeeds for both contribution modes (`percent` + `fixed`)
+- checks emergency fund calculation succeeds
 
 ```bash
 pip install -r requirements.txt
@@ -32,7 +38,7 @@ python scripts/smoke_test.py
 Expected output:
 
 ```text
-Smoke test passed: index + calculate (percent/fixed) are healthy.
+Smoke test passed: dashboard + retirement + emergency fund endpoints are healthy.
 ```
 
 ## UI screenshots in Codex/CI

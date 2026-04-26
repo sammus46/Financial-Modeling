@@ -38,13 +38,23 @@ class RetirementInputs:
     brokerage_retirement_tax_rate: float
 
 
+@dataclass
+class EmergencyExpense:
+    expense_class: str
+    name: str
+    weekly_amount: float
+    monthly_amount: float
+    notes: str
+    enabled: bool
+
+
 class ValidationError(ValueError):
     """Raised for invalid user input."""
 
 
 def _static_version() -> int:
     static_dir = Path(app.root_path) / "static"
-    tracked = ["styles.css", "app.js"]
+    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js"]
     mtimes = []
     for filename in tracked:
         file_path = static_dir / filename
@@ -60,6 +70,14 @@ def inject_static_version() -> dict:
 
 def _to_decimal(percent: float) -> float:
     return percent / 100.0
+
+
+def _to_monthly_amount(weekly_amount: float, monthly_amount: float) -> float:
+    if monthly_amount > 0:
+        return monthly_amount
+    if weekly_amount > 0:
+        return weekly_amount * 52 / 12
+    return 0.0
 
 
 def _dedupe_header_block(html: str) -> str:
@@ -179,6 +197,72 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             raise ValidationError(f"{field_name.title()} cannot be negative.")
 
     return data
+
+
+def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float]:
+    expenses_payload = payload.get("expenses")
+    if not isinstance(expenses_payload, list):
+        raise ValidationError("Expenses must be provided as a list.")
+
+    parsed_expenses: list[EmergencyExpense] = []
+    for row in expenses_payload:
+        if not isinstance(row, dict):
+            raise ValidationError("Each expense row must be an object.")
+
+        enabled = bool(row.get("enabled", True))
+        weekly_amount = _parse_float(row, "weekly_amount", default=0.0)
+        monthly_amount = _parse_float(row, "monthly_amount", default=0.0)
+
+        if weekly_amount < 0 or monthly_amount < 0:
+            raise ValidationError("Weekly and monthly amounts cannot be negative.")
+
+        parsed_expenses.append(
+            EmergencyExpense(
+                expense_class=str(row.get("expense_class", "")).strip(),
+                name=str(row.get("name", "")).strip(),
+                weekly_amount=weekly_amount,
+                monthly_amount=monthly_amount,
+                notes=str(row.get("notes", "")).strip(),
+                enabled=enabled,
+            )
+        )
+
+    included = [row for row in parsed_expenses if row.enabled]
+    if not included:
+        raise ValidationError("Select at least one expense row to include.")
+
+    current_fund_amount = _parse_float(payload, "current_fund_amount", default=0.0)
+    if current_fund_amount < 0:
+        raise ValidationError("Current emergency fund amount cannot be negative.")
+
+    return included, current_fund_amount
+
+
+def calculate_emergency_fund(expenses: list[EmergencyExpense], current_fund_amount: float) -> dict:
+    total_weekly = sum(expense.weekly_amount for expense in expenses)
+    total_monthly = sum(_to_monthly_amount(expense.weekly_amount, expense.monthly_amount) for expense in expenses)
+
+    projections = [
+        {"months": months, "target": total_monthly * months}
+        for months in (3, 6, 9, 12)
+    ]
+    coverage_months = (current_fund_amount / total_monthly) if total_monthly > 0 else 0.0
+    if coverage_months < 3:
+        health_status = "At Risk"
+    elif coverage_months < 6:
+        health_status = "Improving"
+    elif coverage_months < 9:
+        health_status = "Healthy"
+    else:
+        health_status = "Strong"
+
+    return {
+        "total_weekly": total_weekly,
+        "total_monthly": total_monthly,
+        "coverage_months": coverage_months,
+        "health_status": health_status,
+        "projections": projections,
+    }
 
 
 def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0) -> dict:
@@ -420,8 +504,19 @@ def index() -> str:
     return _dedupe_header_block(rendered)
 
 
+@app.route("/apps/retirement", methods=["GET"])
+def retirement_app() -> str:
+    return render_template("retirement.html")
+
+
+@app.route("/apps/emergency-fund", methods=["GET"])
+def emergency_fund_app() -> str:
+    return render_template("emergency_fund.html")
+
+
+@app.route("/api/retirement/calculate", methods=["POST"])
 @app.route("/calculate", methods=["POST"])
-def calculate() -> tuple:
+def calculate_retirement() -> tuple:
     payload = request.get_json(silent=True) or {}
     app.logger.info(
         "Calculate request received.",
@@ -445,6 +540,18 @@ def calculate() -> tuple:
             "post_tax_count": len(result.get("post_tax_balances", [])),
         },
     )
+    return jsonify(result), 200
+
+
+@app.route("/api/emergency-fund/calculate", methods=["POST"])
+def emergency_fund_calculate() -> tuple:
+    payload = request.get_json(silent=True) or {}
+    try:
+        expenses, current_fund_amount = parse_emergency_fund_inputs(payload)
+        result = calculate_emergency_fund(expenses, current_fund_amount)
+    except ValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     return jsonify(result), 200
 
 
