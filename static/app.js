@@ -288,10 +288,13 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
               }`,
             afterLabel: (context) => {
               if (selectedChartMode === "progress") {
-                return context.parsed.y >= 100 ? " On or above target" : " Below target";
+                const progressDelta = context.parsed.y - 100;
+                const direction = progressDelta >= 0 ? "Above" : "Below";
+                return ` ${direction} target by ${Math.abs(progressDelta).toFixed(1)}%`;
               }
               if (selectedChartMode === "gap") {
-                return context.parsed.y >= 0 ? " Ahead of plan" : " Behind plan";
+                const direction = context.parsed.y >= 0 ? "Ahead" : "Behind";
+                return ` ${direction} goal by ${currency(Math.abs(context.parsed.y))}`;
               }
               if (context.dataset.label !== "Portfolio Value (Post-Tax)") {
                 return "";
