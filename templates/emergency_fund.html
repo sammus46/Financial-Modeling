@@ -8,6 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
+    <a class="tool-back-btn" href="{{ url_for('index') }}" aria-label="Back to Dashboard">
+      <span aria-hidden="true">←</span>
+      <span>Dashboard</span>
+    </a>
     <main class="app-shell emergency-shell">
       <section class="panel emergency-panel">
         <div class="panel-top-card">
@@ -16,7 +20,6 @@
           <div class="actions actions-top">
             <button id="add-row-btn" type="button" class="secondary-btn">Add Expense Row</button>
             <button id="calculate-emergency-btn" type="button">Calculate</button>
-            <a class="secondary-btn app-link-inline" href="{{ url_for('index') }}">Back to Dashboard</a>
           </div>
         </div>
 

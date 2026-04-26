@@ -54,7 +54,7 @@ class ValidationError(ValueError):
 
 def _static_version() -> int:
     static_dir = Path(app.root_path) / "static"
-    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js"]
+    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js", "dashboard.js"]
     mtimes = []
     for filename in tracked:
         file_path = static_dir / filename

@@ -6,9 +6,12 @@
     <title>Financial Modeling Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
   </head>
-  <body>
+  <body class="dashboard-page">
     <main class="dashboard-layout">
       <section class="dashboard-hero panel">
+        <div class="dashboard-hero-top">
+          <button id="dashboard-theme-toggle" type="button" class="dashboard-theme-toggle" aria-pressed="false">Dark mode</button>
+        </div>
         <h1>Financial Modeling App Suite</h1>
         <p class="subtitle">Choose a tool to launch. Each app has its own calculators, charting, and performance insights.</p>
       </section>
@@ -17,15 +20,22 @@
         <article class="app-card panel">
           <h2>Retirement Planner</h2>
           <p>Model portfolio growth, retirement targets, withdrawal rates, and goal progress over time.</p>
-          <a class="app-link" href="{{ url_for('retirement_app') }}">Open Retirement Planner</a>
+          <a class="app-link app-launch-btn" href="{{ url_for('retirement_app') }}">
+            <span>Open Retirement Planner</span>
+            <span aria-hidden="true">→</span>
+          </a>
         </article>
 
         <article class="app-card panel">
           <h2>Emergency Fund Calculator</h2>
           <p>Build your monthly essentials table, project 3/6/9/12-month targets, and track emergency fund health.</p>
-          <a class="app-link" href="{{ url_for('emergency_fund_app') }}">Open Emergency Fund Calculator</a>
+          <a class="app-link app-launch-btn" href="{{ url_for('emergency_fund_app') }}">
+            <span>Open Emergency Fund Calculator</span>
+            <span aria-hidden="true">→</span>
+          </a>
         </article>
       </section>
     </main>
+    <script src="{{ url_for('static', filename='dashboard.js', v=static_version) }}"></script>
   </body>
 </html>

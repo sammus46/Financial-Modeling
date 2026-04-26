@@ -67,6 +67,10 @@ body {
   padding-bottom: 2rem;
 }
 
+body.dashboard-page {
+  background: linear-gradient(180deg, var(--bg-main-1) 0%, var(--bg-main-2) 100%);
+}
+
 .app-layout {
   display: grid;
   grid-template-columns: minmax(320px, 430px) 1fr;
@@ -592,6 +596,29 @@ body.dark-mode .summary-label {
 
 .dashboard-hero {
   padding: 1.2rem;
+  text-align: center;
+}
+
+.dashboard-hero-top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-theme-toggle {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  background: color-mix(in oklab, var(--card-bg) 88%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.dashboard-theme-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
 }
 
 .app-card-grid {
@@ -609,6 +636,37 @@ body.dark-mode .summary-label {
   display: inline-block;
   margin-top: 0.65rem;
   text-decoration: none;
+}
+
+.app-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 50%, #0ea5e9 100%);
+  box-shadow:
+    0 12px 24px rgba(37, 99, 235, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+.app-launch-btn:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.07);
+  box-shadow:
+    0 16px 28px rgba(37, 99, 235, 0.34),
+    0 0 0 7px rgba(37, 99, 235, 0.12);
+}
+
+.app-launch-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 16px 28px rgba(37, 99, 235, 0.34),
+    0 0 0 4px color-mix(in oklab, var(--focus) 35%, transparent);
 }
 
 .app-shell {
@@ -646,6 +704,40 @@ body.dark-mode .summary-label {
 
 .emergency-controls {
   margin-top: 1rem;
+}
+
+.tool-back-btn {
+  position: fixed;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.48rem 0.86rem;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #0ea5e9 100%);
+  box-shadow:
+    0 10px 20px rgba(15, 23, 42, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.tool-back-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 13px 25px rgba(15, 23, 42, 0.3),
+    0 0 0 6px rgba(37, 99, 235, 0.11);
+}
+
+.tool-back-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 13px 25px rgba(15, 23, 42, 0.3),
+    0 0 0 4px color-mix(in oklab, var(--focus) 40%, transparent);
 }
 
 @media (max-width: 1080px) {
