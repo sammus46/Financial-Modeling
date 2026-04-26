@@ -18,6 +18,7 @@
             <button id="theme-toggle" type="button" class="secondary-btn" aria-pressed="false">Dark mode</button>
           </div>
         </section>
+        <div class="input-scroll-fade" aria-hidden="true"></div>
 
         <form id="retirement-form" class="input-grid">
           <section class="form-section">
@@ -134,7 +135,13 @@
         </section>
 
         <section class="panel">
-          <h2>Portfolio Over Time (Post-Tax)</h2>
+          <div class="panel-header">
+            <h2>Portfolio Over Time (Post-Tax)</h2>
+            <div class="viz-controls" role="group" aria-label="Chart view mode">
+              <button type="button" class="viz-toggle is-active" data-chart-mode="balance">Balance</button>
+              <button type="button" class="viz-toggle" data-chart-mode="gap">Goal gap</button>
+            </div>
+          </div>
           <canvas id="portfolioChart"></canvas>
         </section>
 
