@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isclose
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
@@ -32,6 +33,22 @@ class RetirementInputs:
 
 class ValidationError(ValueError):
     """Raised for invalid user input."""
+
+
+def _static_version() -> int:
+    static_dir = Path(app.root_path) / "static"
+    tracked = ["styles.css", "app.js"]
+    mtimes = []
+    for filename in tracked:
+        file_path = static_dir / filename
+        if file_path.exists():
+            mtimes.append(int(file_path.stat().st_mtime))
+    return max(mtimes) if mtimes else 1
+
+
+@app.context_processor
+def inject_static_version() -> dict:
+    return {"static_version": _static_version()}
 
 
 def _to_decimal(percent: float) -> float:
