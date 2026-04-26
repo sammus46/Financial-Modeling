@@ -151,12 +151,11 @@ function syncContributionMode() {
 
   savingsRateInput.disabled = !usingPercent;
   fixedContributionInput.disabled = usingPercent;
+}
 
-  if (usingPercent) {
-    fixedContributionInput.value = "0";
-  } else {
-    savingsRateInput.value = "0";
-  }
+function parseCurrencyInput(value) {
+  const numeric = value.replace(/[^0-9.]/g, "");
+  return numeric === "" ? "" : numeric;
 }
 
 async function handleSubmit(event) {
@@ -198,6 +197,13 @@ async function handleSubmit(event) {
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
   radio.addEventListener("change", syncContributionMode);
+});
+
+currencyInputs.forEach((input) => {
+  input.value = formatCurrencyInput(input.value);
+  input.addEventListener("input", () => {
+    input.value = formatCurrencyInput(input.value);
+  });
 });
 
 syncContributionMode();

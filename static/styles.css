@@ -6,6 +6,7 @@ body {
   margin: 0;
   background: linear-gradient(180deg, #f8faff 0%, #f4f7fb 100%);
   color: #212529;
+  padding-bottom: 2rem;
 }
 
 .app-layout {
@@ -113,6 +114,10 @@ input:focus-visible {
 
 .actions {
   margin-top: 0.25rem;
+}
+
+.actions-top {
+  margin-top: 0.75rem;
 }
 
 button {
