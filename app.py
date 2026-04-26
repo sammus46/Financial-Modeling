@@ -7,6 +7,13 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
+HEADER_BLOCK = """<div class=\"panel-top\">
+            <h1>Retirement Calculator</h1>
+            <p class=\"subtitle\">Configure assumptions, then compare actual vs goal outcomes.</p>
+            <div class=\"actions actions-top\">
+              <button id=\"calculate-btn\" type=\"submit\">Calculate</button>
+            </div>
+          </div>"""
 
 
 @dataclass
@@ -53,6 +60,14 @@ def inject_static_version() -> dict:
 
 def _to_decimal(percent: float) -> float:
     return percent / 100.0
+
+
+def _dedupe_header_block(html: str) -> str:
+    parts = html.split(HEADER_BLOCK)
+    if len(parts) <= 2:
+        return html
+    app.logger.warning("Detected duplicate header/calculate blocks in rendered HTML; deduping.")
+    return parts[0] + HEADER_BLOCK + "".join(parts[1:])
 
 
 def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
@@ -350,7 +365,8 @@ def calculate_projection(data: RetirementInputs) -> dict:
 
 @app.route("/", methods=["GET"])
 def index() -> str:
-    return render_template("index.html")
+    rendered = render_template("index.html")
+    return _dedupe_header_block(rendered)
 
 
 @app.route("/calculate", methods=["POST"])
