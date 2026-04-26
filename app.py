@@ -199,7 +199,7 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     return data
 
 
-def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float]:
+def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float, float, int]:
     expenses_payload = payload.get("expenses")
     if not isinstance(expenses_payload, list):
         raise ValidationError("Expenses must be provided as a list.")
@@ -235,15 +235,33 @@ def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], 
     if current_fund_amount < 0:
         raise ValidationError("Current emergency fund amount cannot be negative.")
 
-    return included, current_fund_amount
+    monthly_contribution_amount = _parse_float(payload, "monthly_contribution_amount", default=0.0)
+    if monthly_contribution_amount < 0:
+        raise ValidationError("Monthly contribution amount cannot be negative.")
+
+    contribution_months = int(_parse_float(payload, "contribution_months", default=0.0))
+    if contribution_months < 0:
+        raise ValidationError("Contribution months cannot be negative.")
+
+    return included, current_fund_amount, monthly_contribution_amount, contribution_months
 
 
-def calculate_emergency_fund(expenses: list[EmergencyExpense], current_fund_amount: float) -> dict:
-    total_weekly = sum(expense.weekly_amount for expense in expenses)
-    total_monthly = sum(_to_monthly_amount(expense.weekly_amount, expense.monthly_amount) for expense in expenses)
+def calculate_emergency_fund(
+    expenses: list[EmergencyExpense],
+    current_fund_amount: float,
+    monthly_contribution_amount: float,
+    contribution_months: int,
+) -> dict:
+    monthly_amounts = [_to_monthly_amount(expense.weekly_amount, expense.monthly_amount) for expense in expenses]
+    total_monthly = sum(monthly_amounts)
+    total_weekly = sum(monthly / 52 * 12 for monthly in monthly_amounts)
 
     projections = [
-        {"months": months, "target": total_monthly * months}
+        {
+            "months": months,
+            "target": total_monthly * months,
+            "projected_fund": current_fund_amount + monthly_contribution_amount * min(months, contribution_months),
+        }
         for months in range(3, 25, 3)
     ]
     coverage_months = (current_fund_amount / total_monthly) if total_monthly > 0 else 0.0
@@ -262,6 +280,8 @@ def calculate_emergency_fund(expenses: list[EmergencyExpense], current_fund_amou
         "coverage_months": coverage_months,
         "health_status": health_status,
         "projections": projections,
+        "monthly_contribution_amount": monthly_contribution_amount,
+        "contribution_months": contribution_months,
     }
 
 
@@ -547,8 +567,8 @@ def calculate_retirement() -> tuple:
 def emergency_fund_calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
     try:
-        expenses, current_fund_amount = parse_emergency_fund_inputs(payload)
-        result = calculate_emergency_fund(expenses, current_fund_amount)
+        expenses, current_fund_amount, monthly_contribution_amount, contribution_months = parse_emergency_fund_inputs(payload)
+        result = calculate_emergency_fund(expenses, current_fund_amount, monthly_contribution_amount, contribution_months)
     except ValidationError as exc:
         return jsonify({"error": str(exc)}), 400
 

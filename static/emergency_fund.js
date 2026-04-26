@@ -11,6 +11,8 @@ const coverageCardEl = document.getElementById("emergency-coverage-card");
 const healthCardEl = document.getElementById("emergency-health-card");
 const projectionTableBody = document.querySelector("#projection-table tbody");
 const currentFundInput = document.getElementById("current_fund_amount");
+const monthlyContributionInput = document.getElementById("monthly_contribution_amount");
+const contributionMonthsInput = document.getElementById("contribution_months");
 const emergencyNotesInput = document.getElementById("emergency_notes");
 const totalWeeklyEl = document.getElementById("table-total-weekly");
 const totalMonthlyEl = document.getElementById("table-total-monthly");
@@ -56,6 +58,16 @@ function formatCurrencyInput(value) {
   return `$${withCommas}`;
 }
 
+
+function attachAutoGrow(textarea) {
+  const resize = () => {
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+  textarea.addEventListener("input", resize);
+  window.requestAnimationFrame(resize);
+}
+
 function createCellInput(type, value, className = "") {
   const input = document.createElement("input");
   input.type = type;
@@ -77,10 +89,20 @@ function createRow(row = {}) {
   enabledTd.appendChild(enabled);
 
   const classTd = document.createElement("td");
-  classTd.appendChild(createCellInput("text", row.expense_class ?? ""));
+  const classInput = document.createElement("textarea");
+  classInput.className = "table-text-field";
+  classInput.rows = 1;
+  classInput.value = row.expense_class ?? "";
+  classTd.appendChild(classInput);
+  attachAutoGrow(classInput);
 
   const nameTd = document.createElement("td");
-  nameTd.appendChild(createCellInput("text", row.name ?? ""));
+  const nameInput = document.createElement("textarea");
+  nameInput.className = "table-text-field";
+  nameInput.rows = 1;
+  nameInput.value = row.name ?? "";
+  nameTd.appendChild(nameInput);
+  attachAutoGrow(nameInput);
 
   const weeklyTd = document.createElement("td");
   const weeklyInput = createCellInput("text", formatCurrencyInput(row.weekly_amount ?? ""), "weekly currency-field");
@@ -192,8 +214,8 @@ function collectExpenses() {
     const cells = row.querySelectorAll("td");
     return {
       enabled: cells[0].querySelector("input").checked,
-      expense_class: cells[1].querySelector("input").value.trim(),
-      name: cells[2].querySelector("input").value.trim(),
+      expense_class: cells[1].querySelector("textarea").value.trim(),
+      name: cells[2].querySelector("textarea").value.trim(),
       weekly_amount: parseCurrencyInput(cells[3].querySelector("input").value),
       monthly_amount: parseCurrencyInput(cells[4].querySelector("input").value),
       active_period: row.dataset.activePeriod || "monthly",
@@ -204,6 +226,8 @@ function collectExpenses() {
 function saveState() {
   const payload = {
     current_fund_amount: parseCurrencyInput(currentFundInput.value),
+    monthly_contribution_amount: parseCurrencyInput(monthlyContributionInput.value),
+    contribution_months: Number(contributionMonthsInput.value || 0),
     emergency_notes: emergencyNotesInput.value,
     expenses: collectExpenses(),
   };
@@ -240,11 +264,11 @@ function applySummaryCardStatuses(result) {
   [monthlyCardEl, coverageCardEl, healthCardEl].forEach((card) => card.classList.add(status));
 }
 
-function renderProjectionRows(projections, currentFund) {
+function renderProjectionRows(projections) {
   projectionTableBody.innerHTML = "";
   projections.forEach((item) => {
     const row = document.createElement("tr");
-    const gap = currentFund - item.target;
+    const gap = Number(item.projected_fund || 0) - item.target;
     const gapClass = gap >= 0 ? "gap-positive" : "gap-negative";
     row.innerHTML = `
       <td>${getProjectionLabel(item.months)}</td>
@@ -271,11 +295,11 @@ function getChartTheme() {
   };
 }
 
-function renderChart(projections, currentFund) {
+function renderChart(projections) {
   const chartEl = document.getElementById("emergencyChart");
   const labels = projections.map((item) => getProjectionLabel(item.months));
   const targets = projections.map((item) => item.target);
-  const currentSeries = projections.map(() => currentFund);
+  const currentSeries = projections.map((item) => Number(item.projected_fund || 0));
   const theme = getChartTheme();
 
   if (emergencyChart) {
@@ -334,26 +358,28 @@ function renderChart(projections, currentFund) {
       },
     },
   });
-  latestProjectionData = { projections, currentFund };
+  latestProjectionData = { projections };
 }
 
-function renderSummary(result, currentFund) {
+function renderSummary(result) {
   monthlyTotalEl.textContent = formatCurrency(result.total_monthly);
   coverageMonthsEl.textContent = `${result.coverage_months.toFixed(2)} months`;
   healthStatusEl.textContent = result.health_status;
   applySummaryCardStatuses(result);
-  renderProjectionRows(result.projections, currentFund);
-  renderChart(result.projections, currentFund);
+  renderProjectionRows(result.projections);
+  renderChart(result.projections);
 }
 
 function refreshTableTotals() {
   const expenses = collectExpenses().filter((expense) => expense.enabled);
   const totals = expenses.reduce(
     (acc, expense) => {
-      const weekly = Number(expense.weekly_amount || 0);
-      const monthly = Number(expense.monthly_amount || 0);
+      const weeklyRaw = Number(expense.weekly_amount || 0);
+      const monthlyRaw = Number(expense.monthly_amount || 0);
+      const monthly = monthlyRaw > 0 ? monthlyRaw : weeklyRaw * 52 / 12;
+      const weekly = weeklyRaw > 0 ? weeklyRaw : monthlyRaw > 0 ? monthlyRaw * 12 / 52 : 0;
       acc.weekly += weekly;
-      acc.monthly += monthly > 0 ? monthly : weekly * 52 / 12;
+      acc.monthly += monthly;
       return acc;
     },
     { weekly: 0, monthly: 0 },
@@ -365,6 +391,8 @@ function refreshTableTotals() {
 async function calculateEmergencyFund() {
   errorEl.textContent = "";
   const currentFund = Number(parseCurrencyInput(currentFundInput.value) || 0);
+  const monthlyContribution = Number(parseCurrencyInput(monthlyContributionInput.value) || 0);
+  const contributionMonths = Number(contributionMonthsInput.value || 0);
 
   try {
     const response = await fetch("/api/emergency-fund/calculate", {
@@ -372,6 +400,8 @@ async function calculateEmergencyFund() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         current_fund_amount: currentFund,
+        monthly_contribution_amount: monthlyContribution,
+        contribution_months: contributionMonths,
         expenses: collectExpenses(),
       }),
     });
@@ -381,7 +411,7 @@ async function calculateEmergencyFund() {
       throw new Error(data.error || "Unable to calculate emergency fund projections.");
     }
 
-    renderSummary(data, currentFund);
+    renderSummary(data);
   } catch (error) {
     errorEl.textContent = error.message;
   }
@@ -392,13 +422,15 @@ function initialize() {
   const rows = state?.expenses?.length ? state.expenses : DEFAULT_ROWS;
   rows.forEach((row) => createRow(row));
   currentFundInput.value = formatCurrencyInput(state?.current_fund_amount ?? currentFundInput.value);
+  monthlyContributionInput.value = formatCurrencyInput(state?.monthly_contribution_amount ?? monthlyContributionInput.value);
+  contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? contributionMonthsInput.value || 0)));
   emergencyNotesInput.value = state?.emergency_notes ?? DEFAULT_NOTES;
   addRowButton.addEventListener("click", () => {
     createRow({ enabled: true, active_period: "monthly" });
     saveState();
   });
   calculateButton.addEventListener("click", calculateEmergencyFund);
-  [currentFundInput, emergencyNotesInput].forEach((input) => {
+  [currentFundInput, monthlyContributionInput, contributionMonthsInput, emergencyNotesInput].forEach((input) => {
     input.addEventListener("input", debounceSaveState);
     input.addEventListener("change", saveState);
   });
@@ -409,6 +441,18 @@ function initialize() {
   currentFundInput.addEventListener("blur", () => {
     currentFundInput.value = formatCurrencyInput(currentFundInput.value);
     saveState();
+  });
+  monthlyContributionInput.addEventListener("input", () => {
+    monthlyContributionInput.value = formatCurrencyInput(monthlyContributionInput.value);
+    debounceSaveState();
+  });
+  monthlyContributionInput.addEventListener("blur", () => {
+    monthlyContributionInput.value = formatCurrencyInput(monthlyContributionInput.value);
+    saveState();
+  });
+  contributionMonthsInput.addEventListener("input", () => {
+    contributionMonthsInput.value = String(Math.max(0, Number(contributionMonthsInput.value || 0)));
+    debounceSaveState();
   });
   initializeTheme();
   if (themeToggleButton) {
@@ -431,7 +475,7 @@ function setTheme(mode) {
   }
   localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
   if (latestProjectionData) {
-    renderChart(latestProjectionData.projections, latestProjectionData.currentFund);
+    renderChart(latestProjectionData.projections);
   }
 }
 

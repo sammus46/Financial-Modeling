@@ -696,6 +696,11 @@ body.dark-mode .summary-label {
   gap: 1rem;
 }
 
+.emergency-shell {
+  max-width: 1680px;
+  grid-template-columns: minmax(860px, 1.65fr) minmax(360px, 1fr);
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -725,9 +730,18 @@ body.dark-mode .summary-label {
   min-width: 7.25rem;
 }
 
-#emergency-table td:nth-child(2) input[type="text"],
-#emergency-table td:nth-child(3) input[type="text"] {
-  min-width: 10rem;
+#emergency-table td:nth-child(2),
+#emergency-table td:nth-child(3) {
+  min-width: 12rem;
+  vertical-align: top;
+}
+
+#emergency-table .table-text-field {
+  width: 100%;
+  min-height: 2.2rem;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.3;
 }
 
 #emergency-table input.is-inactive {
@@ -766,6 +780,11 @@ body.dark-mode #emergency-table .row-remove-btn:hover {
   white-space: nowrap;
 }
 
+#emergency-table td:last-child .row-move-btn + .row-move-btn,
+#emergency-table td:last-child .row-move-btn + .row-remove-btn {
+  margin-left: 0.35rem;
+}
+
 #emergency-table .totals-row td {
   font-weight: 700;
   background: color-mix(in oklab, var(--card-bg) 78%, #94a3b8 22%);
@@ -799,6 +818,12 @@ body.dark-mode #projection-table td.gap-negative {
 
 .emergency-controls {
   margin-top: 1rem;
+}
+
+.emergency-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
 }
 
 .emergency-controls input {
