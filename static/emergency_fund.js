@@ -30,6 +30,7 @@ const DEFAULT_ROWS = [
 ];
 const DEFAULT_NOTES = "";
 const STORAGE_KEY = "emergency-fund-form-v2";
+const LEGACY_STORAGE_KEYS = ["emergency-fund-form-v1", "emergency-fund-form"];
 const THEME_KEY = "financial-modeling-theme";
 
 function formatCurrency(value) {
@@ -240,15 +241,43 @@ function debounceSaveState() {
 }
 
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
+  const keysToTry = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
+  for (const key of keysToTry) {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return parsed;
+      }
+    } catch {
+      // Keep trying legacy keys if one payload is malformed.
+    }
+  }
+  return null;
+}
+
+function normalizeRow(row) {
+  if (!row || typeof row !== "object") {
     return null;
   }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const expenseClass = row.expense_class ?? row.expenseClass ?? "";
+  const name = row.name ?? "";
+  return {
+    enabled: row.enabled ?? true,
+    expense_class: String(expenseClass),
+    name: String(name),
+    weekly_amount: parseCurrencyInput(row.weekly_amount ?? row.weeklyAmount ?? ""),
+    monthly_amount: parseCurrencyInput(row.monthly_amount ?? row.monthlyAmount ?? ""),
+    active_period: row.active_period === "weekly" ? "weekly" : "monthly",
+  };
+}
+
+function getInitialRows(state) {
+  const normalizedRows = Array.isArray(state?.expenses) ? state.expenses.map(normalizeRow).filter(Boolean) : [];
+  return normalizedRows.length ? normalizedRows : DEFAULT_ROWS;
 }
 
 function clearSummaryCardStatuses() {
@@ -418,12 +447,15 @@ async function calculateEmergencyFund() {
 }
 
 function initialize() {
+  if (!emergencyTableBody || !addRowButton || !calculateButton) {
+    return;
+  }
   const state = loadState();
-  const rows = state?.expenses?.length ? state.expenses : DEFAULT_ROWS;
+  const rows = getInitialRows(state);
   rows.forEach((row) => createRow(row));
   currentFundInput.value = formatCurrencyInput(state?.current_fund_amount ?? currentFundInput.value);
   monthlyContributionInput.value = formatCurrencyInput(state?.monthly_contribution_amount ?? monthlyContributionInput.value);
-  contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? contributionMonthsInput.value || 0)));
+  contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? (contributionMonthsInput.value || 0))));
   emergencyNotesInput.value = state?.emergency_notes ?? DEFAULT_NOTES;
   addRowButton.addEventListener("click", () => {
     createRow({ enabled: true, active_period: "monthly" });
