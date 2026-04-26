@@ -200,6 +200,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
     ages = [data.current_age]
     pre_tax_balances = [trad_balance + roth_balance + brokerage_balance]
     post_tax_balances = [_after_tax_value(data, trad_balance, roth_balance, brokerage_balance)]
+    traditional_balances = [trad_balance]
+    roth_balances = [roth_balance]
+    brokerage_balances = [brokerage_balance]
 
     for i in range(1, years_to_retirement + 1):
         percent_contribution = (income * savings_rate) if data.contribution_mode == "percent" else 0.0
@@ -221,6 +224,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         ages.append(data.current_age + i)
         pre_tax_balances.append(trad_balance + roth_balance + brokerage_balance)
         post_tax_balances.append(_after_tax_value(data, trad_balance, roth_balance, brokerage_balance))
+        traditional_balances.append(trad_balance)
+        roth_balances.append(roth_balance)
+        brokerage_balances.append(brokerage_balance)
 
         income *= 1 + growth_salary
 
@@ -234,6 +240,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         "ages": ages,
         "pre_tax_balances": pre_tax_balances,
         "post_tax_balances": post_tax_balances,
+        "traditional_balances": traditional_balances,
+        "roth_balances": roth_balances,
+        "brokerage_balances": brokerage_balances,
         "traditional_balance": trad_balance,
         "roth_balance": roth_balance,
         "brokerage_balance": brokerage_balance,
@@ -309,11 +318,43 @@ def calculate_projection(data: RetirementInputs) -> dict:
     )
 
     goal_line = [target_nest_egg for _ in projection["ages"]]
+    trad_return = _to_decimal(data.traditional_return_rate)
+    roth_return = _to_decimal(data.roth_return_rate)
+    brokerage_return = _to_decimal(data.brokerage_return_rate)
+
+    dynamic_goal_line = []
+    total_years = len(projection["ages"]) - 1
+    for index in range(len(projection["ages"])):
+        years_remaining = total_years - index
+        trad_balance_now = projection["traditional_balances"][index]
+        roth_balance_now = projection["roth_balances"][index]
+        brokerage_balance_now = projection["brokerage_balances"][index]
+        weights = _safe_allocation_weights(trad_balance_now, roth_balance_now, brokerage_balance_now)
+
+        initial_unit_total = 1.0
+        unit_trad_start = initial_unit_total * weights[0]
+        unit_roth_start = initial_unit_total * weights[1]
+        unit_brokerage_start = initial_unit_total * weights[2]
+        unit_after_tax_start = _after_tax_value(data, unit_trad_start, unit_roth_start, unit_brokerage_start)
+
+        unit_trad_end = unit_trad_start * ((1 + trad_return) ** years_remaining)
+        unit_roth_end = unit_roth_start * ((1 + roth_return) ** years_remaining)
+        unit_brokerage_end = unit_brokerage_start * ((1 + brokerage_return) ** years_remaining)
+        unit_after_tax_end = _after_tax_value(data, unit_trad_end, unit_roth_end, unit_brokerage_end)
+
+        growth_factor = (
+            (unit_after_tax_end / unit_after_tax_start)
+            if unit_after_tax_start > 0
+            else 1.0
+        )
+        required_after_tax_now = target_nest_egg / growth_factor if growth_factor > 0 else target_nest_egg
+        dynamic_goal_line.append(required_after_tax_now)
 
     return {
         "ages": projection["ages"],
         "post_tax_balances": projection["post_tax_balances"],
         "goal_line": goal_line,
+        "dynamic_goal_line": dynamic_goal_line,
         "stats": {
             "future_value_pre_tax_at_retirement": {
                 "actual": future_portfolio_pre_tax,

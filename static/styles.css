@@ -376,6 +376,49 @@ button:disabled {
 .viz-controls {
   display: inline-flex;
   gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.chart-controls-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.goal-mode-toggle {
+  position: relative;
+  min-width: 124px;
+  height: 34px;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card-bg) 72%, #94a3b8 28%);
+  color: var(--text-primary);
+  box-shadow: none;
+  transform: none;
+  overflow: hidden;
+}
+
+.goal-mode-toggle::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.2);
+  transition: transform 180ms ease;
+}
+
+.goal-mode-toggle.is-dynamic {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #fff;
+}
+
+.goal-mode-toggle.is-dynamic::before {
+  transform: translateX(90px);
 }
 
 .viz-toggle {
@@ -501,16 +544,6 @@ body.dark-mode td.metric-actual.status-low {
   font-size: 0.85rem;
 }
 
-.suggestions-list {
-  margin: 0.4rem 0 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.45rem;
-  color: color-mix(in oklab, var(--text-primary) 86%, var(--muted-text) 14%);
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-
 @media (max-width: 1024px) {
   .app-layout {
     grid-template-columns: 1fr;
@@ -535,6 +568,20 @@ body.dark-mode td.metric-actual.status-low {
 
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .chart-controls-stack {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .goal-mode-toggle,
+  .viz-controls {
+    width: 100%;
+  }
+
+  .viz-controls {
+    justify-content: space-between;
   }
 }
 
