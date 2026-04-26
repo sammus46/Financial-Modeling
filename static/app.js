@@ -184,8 +184,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
           ticks: {
             color: theme.axisColor,
             font: {
-              size: 14,
-              weight: "600",
+              size: 13,
+              weight: "500",
             },
           },
         },
@@ -197,8 +197,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
             callback: (value) => currency(value),
             color: theme.axisColor,
             font: {
-              size: 14,
-              weight: "600",
+              size: 13,
+              weight: "500",
             },
           },
         },
@@ -210,8 +210,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
             boxWidth: 12,
             color: theme.axisColor,
             font: {
-              size: 15,
-              weight: "700",
+              size: 14,
+              weight: "500",
             },
           },
         },
