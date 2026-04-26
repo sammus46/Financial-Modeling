@@ -111,8 +111,6 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             raise ValidationError("Fixed annual contribution must be greater than 0 in fixed mode.")
         if not isclose(data.savings_rate, 0.0):
             raise ValidationError("Savings rate must be 0 in fixed mode.")
-    if data.fixed_annual_contribution < 0:
-        raise ValidationError("Fixed annual contribution cannot be negative.")
 
     percent_fields = {
         "salary growth rate": data.salary_growth_rate,
@@ -121,9 +119,6 @@ def parse_inputs(payload: dict) -> RetirementInputs:
         "traditional pre-tax return rate": data.traditional_return_rate,
         "roth pre-tax return rate": data.roth_return_rate,
         "brokerage pre-tax return rate": data.brokerage_return_rate,
-        "traditional return rate": data.traditional_return_rate,
-        "roth return rate": data.roth_return_rate,
-        "brokerage return rate": data.brokerage_return_rate,
         "retirement spending percent": data.retirement_spend_rate,
         "desired SWR": data.desired_swr,
         "traditional retirement tax rate": data.traditional_retirement_tax_rate,
