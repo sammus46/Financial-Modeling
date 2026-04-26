@@ -10,16 +10,16 @@
   <body>
     <main class="app-layout">
       <aside class="inputs-panel">
-        <form id="retirement-form" class="input-grid">
-          <div class="panel-top">
-            <h1>Retirement Calculator</h1>
-            <p class="field-tag optional">Planner v2</p>
-            <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
-            <div class="actions actions-top">
-              <button id="calculate-btn" type="submit">Calculate</button>
-            </div>
+        <section class="panel-top-card">
+          <h1>Retirement Calculator</h1>
+          <p class="subtitle">Configure assumptions, then compare actual vs goal outcomes.</p>
+          <div class="actions actions-top">
+            <button id="calculate-btn" form="retirement-form" type="submit">Calculate</button>
+            <button id="theme-toggle" type="button" class="secondary-btn" aria-pressed="false">Dark mode</button>
           </div>
+        </section>
 
+        <form id="retirement-form" class="input-grid">
           <section class="form-section">
             <h2>Personal Characteristics</h2>
             <label>

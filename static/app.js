@@ -8,11 +8,15 @@ const goalCardEl = document.getElementById("goal-card");
 const projectedCardEl = document.getElementById("projected-card");
 const targetCardEl = document.getElementById("target-card");
 const submitButton = document.getElementById("calculate-btn");
+const themeToggleButton = document.getElementById("theme-toggle");
 const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
 
 let savingsRateInput;
 let fixedContributionInput;
 let portfolioChart;
+let latestChartData = null;
+
+const THEME_KEY = "retirement-theme";
 
 const DEBUG_PREFIX = "[retirement-ui]";
 
@@ -32,6 +36,69 @@ const currency = (value) =>
   }).format(value);
 
 const percent = (value) => `${value.toFixed(2)}%`;
+
+
+function getComputedColor(name) {
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+
+function toRgba(color, alpha) {
+  if (color.startsWith("#")) {
+    let hex = color.slice(1);
+    if (hex.length === 3) {
+      hex = hex.split("").map((char) => char + char).join("");
+    }
+    const value = Number.parseInt(hex, 16);
+    const r = (value >> 16) & 255;
+    const g = (value >> 8) & 255;
+    const b = value & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  if (color.startsWith("rgb(")) {
+    return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
+  }
+
+  if (color.startsWith("rgba(")) {
+    return color.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, `rgba($1,$2,$3,${alpha})`);
+  }
+
+  return color;
+}
+
+function getChartTheme() {
+  const balanceLine = getComputedColor("--chart-balance-line") || "#2563eb";
+  return {
+    balanceLine,
+    goalLine: getComputedColor("--chart-goal-line") || "#f59e0b",
+    axisColor: getComputedColor("--axis-color") || "#1e293b",
+    gridColor: getComputedColor("--grid-color") || "rgba(148, 163, 184, 0.22)",
+    tooltipBg: getComputedColor("--tooltip-bg") || "rgba(15, 23, 42, 0.92)",
+    tooltipBorder: getComputedColor("--tooltip-border") || "rgba(148, 163, 184, 0.25)",
+    gradientTop: toRgba(balanceLine, 0.35),
+    gradientBottom: toRgba(balanceLine, 0.06),
+  };
+}
+
+function setTheme(mode) {
+  const isDark = mode === "dark";
+  document.body.classList.toggle("dark-mode", isDark);
+  if (themeToggleButton) {
+    themeToggleButton.textContent = isDark ? "Light mode" : "Dark mode";
+    themeToggleButton.setAttribute("aria-pressed", String(isDark));
+  }
+  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+
+  if (latestChartData) {
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine);
+  }
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  const preferredDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme(savedTheme || (preferredDark ? "dark" : "light"));
+}
 
 function formatMetricValue(metricKey, value) {
   if (value === null || value === undefined) {
@@ -65,10 +132,11 @@ function renderChart(ages, postTaxBalances, goalLine) {
     goals: goalLine.length,
   });
 
+  const theme = getChartTheme();
   const ctx = chartEl.getContext("2d");
   const balanceGradient = ctx.createLinearGradient(0, 0, 0, chartEl.height || 320);
-  balanceGradient.addColorStop(0, "rgba(59, 130, 246, 0.34)");
-  balanceGradient.addColorStop(1, "rgba(59, 130, 246, 0.03)");
+  balanceGradient.addColorStop(0, theme.gradientTop);
+  balanceGradient.addColorStop(1, theme.gradientBottom);
 
   if (portfolioChart) {
     portfolioChart.destroy();
@@ -82,7 +150,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
         {
           label: "Portfolio Value (Post-Tax)",
           data: postTaxBalances,
-          borderColor: "#2563eb",
+          borderColor: theme.balanceLine,
           backgroundColor: balanceGradient,
           fill: true,
           borderWidth: 3,
@@ -93,7 +161,7 @@ function renderChart(ages, postTaxBalances, goalLine) {
         {
           label: "Retirement Goal",
           data: goalLine,
-          borderColor: "#f59e0b",
+          borderColor: theme.goalLine,
           borderDash: [8, 6],
           tension: 0,
           pointRadius: 0,
@@ -113,13 +181,25 @@ function renderChart(ages, postTaxBalances, goalLine) {
           grid: {
             display: false,
           },
+          ticks: {
+            color: theme.axisColor,
+            font: {
+              size: 14,
+              weight: "600",
+            },
+          },
         },
         y: {
           grid: {
-            color: "rgba(148, 163, 184, 0.2)",
+            color: theme.gridColor,
           },
           ticks: {
             callback: (value) => currency(value),
+            color: theme.axisColor,
+            font: {
+              size: 14,
+              weight: "600",
+            },
           },
         },
       },
@@ -127,12 +207,17 @@ function renderChart(ages, postTaxBalances, goalLine) {
         legend: {
           labels: {
             usePointStyle: true,
-            boxWidth: 10,
+            boxWidth: 12,
+            color: theme.axisColor,
+            font: {
+              size: 15,
+              weight: "700",
+            },
           },
         },
         tooltip: {
-          backgroundColor: "rgba(15, 23, 42, 0.92)",
-          borderColor: "rgba(148, 163, 184, 0.25)",
+          backgroundColor: theme.tooltipBg,
+          borderColor: theme.tooltipBorder,
           borderWidth: 1,
           padding: 10,
           callbacks: {
@@ -142,6 +227,8 @@ function renderChart(ages, postTaxBalances, goalLine) {
       },
     },
   });
+
+  latestChartData = { ages, postTaxBalances, goalLine };
 }
 
 function renderStats(stats) {
@@ -329,4 +416,13 @@ currencyInputs.forEach((input) => {
 });
 
 syncContributionMode();
+
+if (themeToggleButton) {
+  themeToggleButton.addEventListener("click", () => {
+    const nextTheme = document.body.classList.contains("dark-mode") ? "light" : "dark";
+    setTheme(nextTheme);
+  });
+}
+
+initializeTheme();
 form.dispatchEvent(new Event("submit"));
