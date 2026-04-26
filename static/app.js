@@ -1,6 +1,10 @@
 const form = document.getElementById("retirement-form");
 const errorEl = document.getElementById("error");
 const statsBody = document.querySelector("#stats-table tbody");
+const goalProgressEl = document.getElementById("goal-progress");
+const projectedValueEl = document.getElementById("projected-value");
+const targetValueEl = document.getElementById("target-value");
+const submitButton = form.querySelector('button[type="submit"]');
 
 const savingsRateInput = form.elements["savings_rate"];
 const fixedContributionInput = form.elements["fixed_annual_contribution"];
@@ -129,6 +133,18 @@ function renderStats(stats) {
     .join("");
 }
 
+function renderSummary(stats) {
+  goalProgressEl.textContent = formatMetricValue(
+    "retirement_goal_achieved_pct",
+    stats.retirement_goal_achieved_pct.actual,
+  );
+  projectedValueEl.textContent = formatMetricValue(
+    "future_value_after_tax_at_retirement",
+    stats.future_value_after_tax_at_retirement.actual,
+  );
+  targetValueEl.textContent = formatMetricValue("target_nest_egg", stats.target_nest_egg.goal);
+}
+
 function syncContributionMode() {
   const mode = form.elements["contribution_mode"].value;
   const usingPercent = mode === "percent";
@@ -146,27 +162,37 @@ function syncContributionMode() {
 async function handleSubmit(event) {
   event.preventDefault();
   errorEl.textContent = "";
+  submitButton.disabled = true;
+  submitButton.textContent = "Calculating…";
 
-  const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
+  try {
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
 
-  const response = await fetch("/calculate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+    const response = await fetch("/calculate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok) {
-    errorEl.textContent = data.error || "Unable to calculate results.";
-    return;
+    if (!response.ok) {
+      errorEl.textContent = data.error || "Unable to calculate results.";
+      return;
+    }
+
+    renderChart(data.ages, data.post_tax_balances, data.goal_line);
+    renderStats(data.stats);
+    renderSummary(data.stats);
+  } catch (_error) {
+    errorEl.textContent = "Something went wrong while calculating. Please try again.";
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Calculate";
   }
-
-  renderChart(data.ages, data.post_tax_balances, data.goal_line);
-  renderStats(data.stats);
 }
 
 form.addEventListener("submit", handleSubmit);
