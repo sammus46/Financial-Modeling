@@ -16,7 +16,7 @@
       <section class="panel emergency-panel">
         <div class="panel-top-card">
           <h1>Emergency Fund Calculator</h1>
-          <p class="subtitle">Track essential expenses and compare your current cash reserve to 3, 6, 9, and 12-month targets.</p>
+          <p class="subtitle">Track essential expenses and compare your current cash reserve to rolling 3-month targets out to 24 months.</p>
           <div class="actions actions-top">
             <button id="calculate-emergency-btn" type="button">Calculate</button>
             <button id="emergency-theme-toggle" type="button" class="secondary-btn" aria-pressed="false">Dark mode</button>
@@ -38,6 +38,14 @@
               </tr>
             </thead>
             <tbody></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="3">Totals (Included rows)</td>
+                <td id="table-total-weekly">$0</td>
+                <td id="table-total-monthly">$0</td>
+                <td>—</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div class="actions emergency-table-actions">
@@ -47,7 +55,7 @@
         <section class="panel emergency-controls">
           <label for="current_fund_amount">
             Current emergency fund amount ($)
-            <input id="current_fund_amount" type="number" step="0.01" min="0" value="5000" />
+            <input id="current_fund_amount" type="text" inputmode="decimal" value="$5,000" />
           </label>
         </section>
 

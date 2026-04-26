@@ -21,7 +21,7 @@ let latestChartData = null;
 let selectedChartMode = "balance";
 let selectedGoalMode = "static";
 
-const THEME_KEY = "retirement-theme";
+const THEME_KEY = "financial-modeling-theme";
 const FORM_VALUES_KEY = "retirement-form-values-v1";
 const GOAL_MODE_KEY = "retirement-goal-mode-v1";
 

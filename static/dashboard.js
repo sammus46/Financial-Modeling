@@ -1,5 +1,5 @@
 const dashboardThemeToggle = document.getElementById("dashboard-theme-toggle");
-const DASHBOARD_THEME_KEY = "dashboard-theme";
+const GLOBAL_THEME_KEY = "financial-modeling-theme";
 
 function applyDashboardTheme(mode) {
   const isDark = mode === "dark";
@@ -10,11 +10,11 @@ function applyDashboardTheme(mode) {
     dashboardThemeToggle.setAttribute("aria-pressed", String(isDark));
   }
 
-  localStorage.setItem(DASHBOARD_THEME_KEY, isDark ? "dark" : "light");
+  localStorage.setItem(GLOBAL_THEME_KEY, isDark ? "dark" : "light");
 }
 
 function initializeDashboardTheme() {
-  const savedTheme = localStorage.getItem(DASHBOARD_THEME_KEY);
+  const savedTheme = localStorage.getItem(GLOBAL_THEME_KEY);
   const preferredDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyDashboardTheme(savedTheme || (preferredDark ? "dark" : "light"));
 }
