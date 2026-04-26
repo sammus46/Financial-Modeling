@@ -10,6 +10,15 @@ const savingsRateInput = form.elements["savings_rate"];
 const fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 let portfolioChart;
+const DEBUG_PREFIX = "[retirement-ui]";
+
+function logDebug(message, details) {
+  if (details !== undefined) {
+    console.log(`${DEBUG_PREFIX} ${message}`, details);
+    return;
+  }
+  console.log(`${DEBUG_PREFIX} ${message}`);
+}
 
 const currency = (value) =>
   new Intl.NumberFormat("en-US", {
@@ -38,6 +47,17 @@ function formatMetricValue(metricKey, value) {
 }
 
 function renderChart(ages, postTaxBalances, goalLine) {
+  if (typeof Chart === "undefined") {
+    logDebug("Chart.js is unavailable on window; skipping chart render.");
+    return;
+  }
+
+  logDebug("Rendering chart.", {
+    points: ages.length,
+    balances: postTaxBalances.length,
+    goals: goalLine.length,
+  });
+
   const ctx = document.getElementById("portfolioChart").getContext("2d");
 
   if (portfolioChart) {
@@ -121,6 +141,7 @@ function renderStats(stats) {
     "retirement_goal_achieved_pct",
   ];
 
+  logDebug("Rendering stats table.", { metrics: orderedKeys.length });
   statsBody.innerHTML = orderedKeys
     .map((key) => {
       const row = stats[key];
