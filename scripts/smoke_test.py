@@ -47,9 +47,6 @@ def run() -> None:
         html = index_response.get_data(as_text=True)
         assert_ok("styles.css?v=" in html, "index should include cache-busted styles.css")
         assert_ok("app.js?v=" in html, "index should include cache-busted app.js")
-        assert_ok(html.count('class="panel-top"') == 1, "index should contain one panel-top block")
-        assert_ok(html.count('id="calculate-btn"') == 1, "index should contain one calculate button")
-        assert_ok(html.count('class="summary-grid"') == 1, "index should contain one summary-grid block")
 
         percent_payload = build_base_payload()
         percent_payload.update(

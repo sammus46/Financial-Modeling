@@ -64,34 +64,10 @@ def _to_decimal(percent: float) -> float:
 
 def _dedupe_header_block(html: str) -> str:
     parts = html.split(HEADER_BLOCK)
-    deduped_html = parts[0] + HEADER_BLOCK + "".join(parts[1:]) if len(parts) > 2 else html
-
-    while deduped_html.count('class="panel-top"') > 1:
-        app.logger.warning("Detected duplicate panel-top block; removing extras.")
-        first = deduped_html.find('class="panel-top"')
-        duplicate = deduped_html.find('class="panel-top"', first + 1)
-        block_start = deduped_html.rfind("<div", 0, duplicate)
-        first_close = deduped_html.find("</div>", duplicate)
-        second_close = deduped_html.find("</div>", first_close + 6)
-        if block_start == -1 or first_close == -1 or second_close == -1:
-            break
-        deduped_html = deduped_html[:block_start] + deduped_html[second_close + 6:]
-
-    while deduped_html.count('class="summary-grid"') > 1:
-        app.logger.warning("Detected duplicate summary-grid block; removing extras.")
-        first = deduped_html.find('class="summary-grid"')
-        duplicate = deduped_html.find('class="summary-grid"', first + 1)
-        block_start = deduped_html.rfind("<section", 0, duplicate)
-        block_end = deduped_html.find("</section>", duplicate)
-        if block_start == -1 or block_end == -1:
-            break
-        deduped_html = deduped_html[:block_start] + deduped_html[block_end + 10:]
-
-    if deduped_html.count('id="calculate-btn"') > 1:
-        app.logger.warning("Fallback dedupe on duplicate calculate button IDs.")
-        deduped_html = deduped_html.replace('id="calculate-btn"', 'id="calculate-btn-duplicate"', deduped_html.count('id="calculate-btn"') - 1)
-
-    return deduped_html
+    if len(parts) <= 2:
+        return html
+    app.logger.warning("Detected duplicate header/calculate blocks in rendered HTML; deduping.")
+    return parts[0] + HEADER_BLOCK + "".join(parts[1:])
 
 
 def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
