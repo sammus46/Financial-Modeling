@@ -136,6 +136,21 @@ body {
   gap: 1rem;
   padding-top: 0.2rem;
   padding-bottom: 0.5rem;
+  --input-fade-height: 4.25rem;
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    transparent calc(var(--input-fade-height) * 0.45),
+    rgba(0, 0, 0, 0.8) var(--input-fade-height),
+    #000 calc(var(--input-fade-height) + 0.6rem)
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    transparent calc(var(--input-fade-height) * 0.45),
+    rgba(0, 0, 0, 0.8) var(--input-fade-height),
+    #000 calc(var(--input-fade-height) + 0.6rem)
+  );
 }
 
 .input-grid::before {
@@ -144,10 +159,10 @@ body {
   top: 0;
   z-index: 12;
   display: block;
-  height: 1rem;
-  margin-bottom: -1rem;
+  height: var(--input-fade-height);
+  margin-bottom: calc(-1 * var(--input-fade-height));
   pointer-events: none;
-  background: linear-gradient(180deg, var(--card-bg) 0%, color-mix(in oklab, var(--card-bg) 65%, transparent) 70%, transparent 100%);
+  background: linear-gradient(180deg, var(--card-bg) 0%, color-mix(in oklab, var(--card-bg) 88%, transparent) 52%, transparent 100%);
 }
 
 
@@ -420,6 +435,15 @@ body.dark-mode td.metric-actual.status-low {
 
   .panel-top-card {
     position: static;
+  }
+
+  .input-grid {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .input-grid::before {
+    display: none;
   }
 
   .summary-grid {
