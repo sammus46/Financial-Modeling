@@ -81,9 +81,18 @@
           <h2>Total Payments Over Time</h2>
           <canvas id="debtChart"></canvas>
           <div class="debt-chart-controls">
-            <label for="horizon_slider">
-              Horizon slice (months)
-              <input id="horizon_slider" type="range" min="1" max="360" value="360" />
+            <label for="graph_granularity">
+              View by
+              <select id="graph_granularity">
+                <option value="months">Months</option>
+                <option value="weeks">Weeks (approx)</option>
+                <option value="quarters">Quarters</option>
+                <option value="years">Years</option>
+              </select>
+            </label>
+            <label for="horizon_periods">
+              Periods to show
+              <input id="horizon_periods" type="number" min="1" step="1" value="12" />
             </label>
             <p id="horizon_label" class="field-help">Showing full max horizon.</p>
           </div>
