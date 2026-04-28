@@ -62,3 +62,8 @@ Tradeoffs:
 1. Option 1 + Option 2 together (fast, low risk).
 2. If still visible in Safari/iOS, try Option 5.
 3. If issue persists across browsers, perform Option 4 refactor.
+
+## Sprint A status
+- ✅ Option 1 implemented in `static/styles.css` with a small opaque pseudo-element mask on `.panel-top-card`.
+- ✅ Option 2 already satisfied (`.input-grid` has no explicit z-index).
+- 🔎 Remaining follow-up: verify Safari/iOS behavior before considering Option 5.

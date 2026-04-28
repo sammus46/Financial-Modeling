@@ -104,6 +104,20 @@ def run() -> None:
         monte_data = monte_response.get_json() or {}
         assert_ok("monte_carlo" in monte_data, "Monte Carlo response should include monte_carlo payload")
 
+        bool_string_payload = build_base_payload()
+        bool_string_payload.update(
+            {
+                "contribution_mode": "percent",
+                "savings_rate": "20",
+                "fixed_annual_contribution": "0",
+                "enable_monte_carlo": "false",
+                "enable_contribution_escalation": "false",
+                "enable_glidepath": "false",
+            }
+        )
+        bool_string_response = client.post("/api/retirement/calculate", json=bool_string_payload)
+        assert_ok(bool_string_response.status_code == 200, "String boolean flags should be parsed correctly")
+
         emergency_payload = {
             "current_fund_amount": "5000",
             "expenses": [
