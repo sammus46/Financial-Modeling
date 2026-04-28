@@ -596,6 +596,9 @@ function validateForm(payload) {
   const mode = payload.contribution_mode;
   const savingsRateValue = number("savings_rate");
   const fixedContributionValue = Number(parseCurrencyInput(payload.fixed_annual_contribution || "0"));
+  const traditionalContributionPct = number("traditional_contribution_pct");
+  const rothContributionPct = number("roth_contribution_pct");
+  const brokerageContributionPct = number("brokerage_contribution_pct");
 
   if (retirementAge <= currentAge) {
     errors.push({ field: "retirement_age", message: "Retirement age must be greater than current age." });
@@ -619,6 +622,22 @@ function validateForm(payload) {
   }
   if (mode === "fixed" && fixedContributionValue <= 0) {
     errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be greater than $0 in fixed mode." });
+  }
+  [
+    ["traditional_contribution_pct", traditionalContributionPct],
+    ["roth_contribution_pct", rothContributionPct],
+    ["brokerage_contribution_pct", brokerageContributionPct],
+  ].forEach(([fieldName, value]) => {
+    if (value < 0 || value > 100) {
+      errors.push({ field: fieldName, message: "Contribution allocation must be between 0% and 100%." });
+    }
+  });
+  const contributionAllocationTotal = traditionalContributionPct + rothContributionPct + brokerageContributionPct;
+  if (Math.abs(contributionAllocationTotal - 100) > 0.001) {
+    errors.push({
+      field: "traditional_contribution_pct",
+      message: "Traditional, Roth, and brokerage contribution allocations must add up to 100%.",
+    });
   }
   if (payload.enable_monte_carlo === true || payload.enable_monte_carlo === "true") {
     const trials = number("monte_carlo_trials");
