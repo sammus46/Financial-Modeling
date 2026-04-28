@@ -4,6 +4,7 @@
 - The button exists in the DOM and is correctly wired to the form via `form="retirement-form"`. 
 - JavaScript now targets the button by ID (`calculate-btn`) and binds `handleSubmit` to the form submit event.
 - The submit flow intentionally disables the button while a request is in flight and re-enables it in `finally`.
+- Submit flow now also includes a client-side timeout (`AbortController`) and explicit non-JSON response handling.
 
 ## Why users may still say “Calculate does not work”
 
@@ -39,10 +40,10 @@ Likely sources:
 - Script loading order regressions.
 
 ### 5) Button remains disabled because request never resolves
-If fetch hangs due to network/proxy issues, the button stays disabled until the request completes or errors.
+Mitigated in Sprint A by adding a request timeout in `static/retirement.js` so hanging requests abort and the button is restored.
 
 ### 6) API returns non-JSON on error
-`handleSubmit` expects JSON (`await response.json()`). If backend/proxy returns HTML/text error pages, parsing can throw and fall into generic error path.
+Mitigated in Sprint A by checking `content-type` before parsing and gracefully surfacing text errors.
 
 ### 7) Ad blocker/CSP/proxy interference
 Local/security tooling may block `/calculate` POST calls or alter responses.

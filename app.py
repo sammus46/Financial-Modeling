@@ -129,6 +129,21 @@ def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
     return float(value)
 
 
+def _parse_bool(payload: dict, key: str, default: bool = False) -> bool:
+    value = payload.get(key, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+    return bool(value)
+
+
 def _safe_allocation_weights(
     traditional: float,
     roth: float,
@@ -176,13 +191,13 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             desired_swr=_parse_float(payload, "desired_swr"),
             traditional_retirement_tax_rate=_parse_float(payload, "traditional_retirement_tax_rate"),
             brokerage_retirement_tax_rate=_parse_float(payload, "brokerage_retirement_tax_rate"),
-            enable_monte_carlo=bool(payload.get("enable_monte_carlo", False)),
+            enable_monte_carlo=_parse_bool(payload, "enable_monte_carlo"),
             monte_carlo_trials=int(_parse_float(payload, "monte_carlo_trials", default=1000.0)),
             monte_carlo_return_stddev=_parse_float(payload, "monte_carlo_return_stddev", default=12.0),
             monte_carlo_inflation_stddev=_parse_float(payload, "monte_carlo_inflation_stddev", default=1.0),
-            enable_contribution_escalation=bool(payload.get("enable_contribution_escalation", False)),
+            enable_contribution_escalation=_parse_bool(payload, "enable_contribution_escalation"),
             contribution_escalation_rate=_parse_float(payload, "contribution_escalation_rate", default=0.0),
-            enable_glidepath=bool(payload.get("enable_glidepath", False)),
+            enable_glidepath=_parse_bool(payload, "enable_glidepath"),
             glidepath_equity_start=_parse_float(payload, "glidepath_equity_start", default=70.0),
             glidepath_equity_end=_parse_float(payload, "glidepath_equity_end", default=50.0),
             glidepath_equity_return_rate=_parse_float(payload, "glidepath_equity_return_rate", default=9.0),

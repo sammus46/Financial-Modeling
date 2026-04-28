@@ -24,6 +24,7 @@ let selectedGoalMode = "static";
 const THEME_KEY = "financial-modeling-theme";
 const FORM_VALUES_KEY = "retirement-form-values-v1";
 const GOAL_MODE_KEY = "retirement-goal-mode-v1";
+const CALCULATE_TIMEOUT_MS = 20000;
 
 const DEBUG_PREFIX = "[retirement-ui]";
 
@@ -710,22 +711,34 @@ async function handleSubmit(event) {
     payload.enable_glidepath = Boolean(form.elements["enable_glidepath"]?.checked);
     logDebug("Prepared payload.", payload);
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), CALCULATE_TIMEOUT_MS);
     const response = await fetch("/api/retirement/calculate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).finally(() => {
+      window.clearTimeout(timeoutId);
     });
     logDebug("Received /api/retirement/calculate response.", { status: response.status, ok: response.ok });
 
-    let data;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      logDebug("Failed to parse /api/retirement/calculate response as JSON.", parseError);
-      errorEl.textContent = "Server response was not valid JSON.";
-      return;
+    const responseType = response.headers.get("content-type") || "";
+    let data = {};
+    if (responseType.includes("application/json")) {
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        logDebug("Failed to parse /api/retirement/calculate response as JSON.", parseError);
+        errorEl.textContent = "Server response was not valid JSON.";
+        return;
+      }
+    } else {
+      const textPayload = await response.text();
+      logDebug("Received non-JSON /api/retirement/calculate response.", { responseType, textPayload });
+      data.error = textPayload || "Server response format was unexpected.";
     }
 
     if (!response.ok) {
@@ -752,7 +765,10 @@ async function handleSubmit(event) {
     saveFormValues();
   } catch (_error) {
     logDebug("Unhandled error during calculate flow.", _error);
-    errorEl.textContent = "Something went wrong while calculating. Please try again.";
+    errorEl.textContent =
+      _error?.name === "AbortError"
+        ? "Calculation timed out. Please check your connection and try again."
+        : "Something went wrong while calculating. Please try again.";
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = "Calculate";
