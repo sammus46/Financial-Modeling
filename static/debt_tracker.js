@@ -429,18 +429,26 @@ function exportDebtTimelineToXlsx() {
   }
   errorEl.textContent = "";
 
-  const debtNames = Array.from(
-    new Set(latestResult.allocations_timeline.flatMap((entry) => (entry.payments || []).map((payment) => payment.name || "Debt"))),
+  const maxDebtRows = latestResult.allocations_timeline.reduce(
+    (maxRows, entry) => Math.max(maxRows, (entry.payments || []).length),
+    0,
   );
+  const debtRows = Array.from({ length: maxDebtRows }, (_, debtIndex) => {
+    const label =
+      latestResult.allocations_timeline
+        .map((entry) => entry.payments?.[debtIndex]?.name)
+        .find((name) => typeof name === "string" && name.trim().length > 0) || "Debt";
+    return { debtIndex, label };
+  });
 
   const baseDate = firstOfCurrentMonth();
   const headers = ["Expense / Debt", ...latestResult.allocations_timeline.map((_, index) => formatIsoDate(addMonths(baseDate, index)))];
   const sheetRows = [headers];
 
-  debtNames.forEach((name) => {
-    const row = [name];
+  debtRows.forEach(({ debtIndex, label }) => {
+    const row = [label];
     latestResult.allocations_timeline.forEach((entry) => {
-      const payment = (entry.payments || []).find((item) => item.name === name);
+      const payment = entry.payments?.[debtIndex];
       row.push(Number(payment?.payment || 0));
     });
     sheetRows.push(row);
