@@ -591,9 +591,7 @@ function validateForm(payload) {
   const number = (fieldName) => Number(payload[fieldName] ?? 0);
   const currentAge = number("current_age");
   const retirementAge = number("retirement_age");
-  const inflationRate = number("inflation_rate");
-  const retirementSpendRate = number("retirement_spend_rate");
-  const desiredSwr = number("desired_swr");
+  const annualIncome = Number(parseCurrencyInput(payload.annual_income || "0"));
   const mode = payload.contribution_mode;
   const savingsRateValue = number("savings_rate");
   const fixedContributionValue = Number(parseCurrencyInput(payload.fixed_annual_contribution || "0"));
@@ -601,54 +599,121 @@ function validateForm(payload) {
   const rothContributionPct = number("roth_contribution_pct");
   const brokerageContributionPct = number("brokerage_contribution_pct");
 
+  if (currentAge < 0 || currentAge > 120) {
+    errors.push({ field: "current_age", message: "Current age must be between 0 and 120." });
+  }
+  if (retirementAge < 1 || retirementAge > 130) {
+    errors.push({ field: "retirement_age", message: "Retirement age must be between 1 and 130." });
+  }
   if (retirementAge <= currentAge) {
     errors.push({ field: "retirement_age", message: "Retirement age must be greater than current age." });
   }
-  if (inflationRate <= 0) {
-    errors.push({ field: "inflation_rate", message: "Inflation rate must be greater than 0." });
+  if (retirementAge - currentAge > 100) {
+    errors.push({ field: "retirement_age", message: "Years to retirement must be 100 or less." });
   }
-  if (retirementSpendRate <= 0) {
-    errors.push({ field: "retirement_spend_rate", message: "Retirement spending rate must be greater than 0." });
+  if (annualIncome <= 0) {
+    errors.push({ field: "annual_income", message: "Annual income must be greater than 0." });
   }
-  if (desiredSwr <= 0) {
+
+  if (!["percent", "fixed"].includes(mode)) {
+    errors.push({ field: "savings_rate", message: "Contribution mode must be either percent or fixed." });
+  }
+  if (mode === "percent") {
+    if (savingsRateValue <= 0) {
+      errors.push({ field: "savings_rate", message: "Savings rate must be greater than 0 when using percent mode." });
+    }
+    if (Math.abs(fixedContributionValue) > 0.000001) {
+      errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be 0 in percent mode." });
+    }
+  }
+  if (mode === "fixed") {
+    if (fixedContributionValue <= 0) {
+      errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be greater than 0 in fixed mode." });
+    }
+    if (Math.abs(savingsRateValue) > 0.000001) {
+      errors.push({ field: "savings_rate", message: "Savings rate must be 0 in fixed mode." });
+    }
+  }
+
+  [
+    ["salary_growth_rate", "Salary growth rate must be between 0 and 100."],
+    ["savings_rate", "Savings rate must be between 0 and 100."],
+    ["traditional_contribution_pct", "Traditional contribution percent must be between 0 and 100."],
+    ["roth_contribution_pct", "Roth contribution percent must be between 0 and 100."],
+    ["brokerage_contribution_pct", "Brokerage contribution percent must be between 0 and 100."],
+    ["inflation_rate", "Inflation rate must be between 0 and 100."],
+    ["traditional_return_rate", "Traditional pre-tax return rate must be between 0 and 100."],
+    ["roth_return_rate", "Roth pre-tax return rate must be between 0 and 100."],
+    ["brokerage_return_rate", "Brokerage pre-tax return rate must be between 0 and 100."],
+    ["retirement_spend_rate", "Retirement spending percent must be between 0 and 100."],
+    ["desired_swr", "Desired SWR must be between 0 and 100."],
+    ["traditional_retirement_tax_rate", "Traditional retirement tax rate must be between 0 and 100."],
+    ["brokerage_retirement_tax_rate", "Brokerage retirement tax rate must be between 0 and 100."],
+  ].forEach(([fieldName, message]) => {
+    const value = number(fieldName);
+    if (value < 0 || value > 100) {
+      errors.push({ field: fieldName, message });
+    }
+  });
+
+  if (Math.abs(number("desired_swr")) <= 0.000001) {
     errors.push({ field: "desired_swr", message: "Desired SWR must be greater than 0." });
   }
-  ["traditional_retirement_tax_rate", "brokerage_retirement_tax_rate"].forEach((fieldName) => {
-    if (number(fieldName) > 100) {
-      errors.push({ field: fieldName, message: "Tax rate cannot be greater than 100%." });
-    }
-  });
-  if (mode === "percent" && savingsRateValue <= 0) {
-    errors.push({ field: "savings_rate", message: "Savings rate must be greater than 0 in % mode." });
-  }
-  if (mode === "fixed" && fixedContributionValue <= 0) {
-    errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be greater than $0 in fixed mode." });
-  }
-  [
-    ["traditional_contribution_pct", traditionalContributionPct],
-    ["roth_contribution_pct", rothContributionPct],
-    ["brokerage_contribution_pct", brokerageContributionPct],
-  ].forEach(([fieldName, value]) => {
-    if (value < 0 || value > 100) {
-      errors.push({ field: fieldName, message: "Contribution allocation must be between 0% and 100%." });
-    }
-  });
+
   const contributionAllocationTotal = traditionalContributionPct + rothContributionPct + brokerageContributionPct;
   if (Math.abs(contributionAllocationTotal - 100) > 0.001) {
     errors.push({
       field: "traditional_contribution_pct",
-      message: "Traditional, Roth, and brokerage contribution allocations must add up to 100%.",
+      message: "Traditional, Roth, and brokerage contribution percentages must sum to 100.",
     });
   }
+
+  ["traditional_assets", "roth_assets", "brokerage_assets"].forEach((fieldName) => {
+    const value = Number(parseCurrencyInput(payload[fieldName] || "0"));
+    if (value < 0) {
+      errors.push({ field: fieldName, message: "Asset balances cannot be negative." });
+    }
+  });
+
   if (payload.enable_monte_carlo === true || payload.enable_monte_carlo === "true") {
     const trials = number("monte_carlo_trials");
+    const returnStdDev = number("monte_carlo_return_stddev");
+    const inflationStdDev = number("monte_carlo_inflation_stddev");
     if (trials < 100 || trials > 20000) {
       errors.push({ field: "monte_carlo_trials", message: "Monte Carlo trials must be between 100 and 20000." });
     }
+    if (returnStdDev < 0 || returnStdDev > 100) {
+      errors.push({ field: "monte_carlo_return_stddev", message: "Monte Carlo return std dev must be between 0 and 100." });
+    }
+    if (inflationStdDev < 0 || inflationStdDev > 100) {
+      errors.push({ field: "monte_carlo_inflation_stddev", message: "Monte Carlo inflation std dev must be between 0 and 100." });
+    }
+  }
+
+  if (payload.enable_contribution_escalation === true || payload.enable_contribution_escalation === "true") {
+    const escalationRate = number("contribution_escalation_rate");
+    if (escalationRate < 0 || escalationRate > 100) {
+      errors.push({ field: "contribution_escalation_rate", message: "Contribution escalation rate must be between 0 and 100." });
+    }
+  }
+
+  if (payload.enable_glidepath === true || payload.enable_glidepath === "true") {
+    [
+      ["glidepath_equity_start", "Glidepath equity start must be between 0 and 100."],
+      ["glidepath_equity_end", "Glidepath equity end must be between 0 and 100."],
+      ["glidepath_equity_return_rate", "Glidepath equity return must be between 0 and 100."],
+      ["glidepath_bond_return_rate", "Glidepath bond return must be between 0 and 100."],
+    ].forEach(([fieldName, message]) => {
+      const value = number(fieldName);
+      if (value < 0 || value > 100) {
+        errors.push({ field: fieldName, message });
+      }
+    });
   }
 
   return errors;
 }
+
 
 function saveFormValues() {
   const payload = Object.fromEntries(new FormData(form).entries());
