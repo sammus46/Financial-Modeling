@@ -15,11 +15,13 @@ const monthsCardEl = document.getElementById("debt-months-card");
 const interestCardEl = document.getElementById("debt-interest-card");
 const orderCardEl = document.getElementById("debt-order-card");
 const rankedTableBody = document.querySelector("#debt-ranked-table tbody");
+const debtNotesList = document.getElementById("debt-notes-list");
 
 let debtChart;
 let latestResult = null;
 const THEME_KEY = "financial-modeling-theme";
 const STORAGE_KEY = "debt-tracker-form-v1";
+let debtRowIdCounter = 0;
 
 const currency = (value) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
@@ -57,8 +59,81 @@ function autosizeDebtNameField(textarea) {
   textarea.style.height = `${Math.max(textarea.scrollHeight, 36)}px`;
 }
 
+function normalizeDebtRowId(idCandidate = "") {
+  const value = String(idCandidate || "").trim();
+  if (value) {
+    const match = value.match(/^debt-row-(\d+)$/);
+    if (match) {
+      debtRowIdCounter = Math.max(debtRowIdCounter, Number(match[1]) + 1);
+    }
+    return value;
+  }
+  return `debt-row-${debtRowIdCounter++}`;
+}
+
+function getDebtRowName(row) {
+  return row.querySelector("td:first-child textarea")?.value.trim() || "Untitled debt";
+}
+
+function createDebtNoteRow(row) {
+  const noteRow = document.createElement("div");
+  noteRow.className = "expense-note-row";
+  noteRow.dataset.rowId = row.dataset.rowId;
+
+  const debtLabel = document.createElement("p");
+  debtLabel.className = "expense-note-row-label expense-note-class-label";
+  debtLabel.textContent = "Debt";
+
+  const nameLabel = document.createElement("p");
+  nameLabel.className = "expense-note-row-label expense-note-name-label";
+  nameLabel.textContent = getDebtRowName(row);
+
+  const textarea = document.createElement("textarea");
+  textarea.rows = 2;
+  textarea.placeholder = "Add notes for this debt...";
+  textarea.value = row.dataset.note || "";
+  textarea.addEventListener("input", () => {
+    row.dataset.note = textarea.value;
+    saveState();
+  });
+  textarea.addEventListener("change", () => {
+    row.dataset.note = textarea.value;
+    saveState();
+  });
+  autosizeDebtNameField(textarea);
+  textarea.addEventListener("input", () => autosizeDebtNameField(textarea));
+
+  noteRow.append(debtLabel, nameLabel, textarea);
+  return noteRow;
+}
+
+function syncDebtNotesRows() {
+  if (!debtNotesList) {
+    return;
+  }
+  const rows = Array.from(debtTableBody.querySelectorAll("tr"));
+  const existingNotes = new Map(
+    Array.from(debtNotesList.querySelectorAll(".expense-note-row")).map((noteRow) => [noteRow.dataset.rowId, noteRow]),
+  );
+  const nextRows = rows.map((row) => {
+    const rowId = row.dataset.rowId;
+    let noteRow = existingNotes.get(rowId);
+    if (!noteRow) {
+      noteRow = createDebtNoteRow(row);
+    }
+    const nameLabel = noteRow.querySelector(".expense-note-name-label");
+    if (nameLabel) {
+      nameLabel.textContent = getDebtRowName(row);
+    }
+    return noteRow;
+  });
+  debtNotesList.replaceChildren(...nextRows);
+}
+
 function createDebtRow(row = {}) {
   const tr = document.createElement("tr");
+  tr.dataset.rowId = normalizeDebtRowId(row.id);
+  tr.dataset.note = row.notes ?? "";
   const nameInput = document.createElement("textarea");
   nameInput.value = row.name || "Debt";
   nameInput.className = "debt-name-field";
@@ -95,6 +170,7 @@ function createDebtRow(row = {}) {
 
   nameInput.addEventListener("input", () => {
     autosizeDebtNameField(nameInput);
+    syncDebtNotesRows();
     saveState();
   });
   [aprInput, deferredDate, deferredRate].forEach((input) => input.addEventListener("change", saveState));
@@ -105,6 +181,7 @@ function createDebtRow(row = {}) {
   deleteBtn.textContent = "−";
   deleteBtn.addEventListener("click", () => {
     tr.remove();
+    syncDebtNotesRows();
     saveState();
   });
 
@@ -118,6 +195,7 @@ function createDebtRow(row = {}) {
   actions.appendChild(deleteBtn);
   tr.appendChild(actions);
   debtTableBody.appendChild(tr);
+  syncDebtNotesRows();
 }
 
 function collectDebts() {
@@ -131,6 +209,8 @@ function collectDebts() {
       deferred_interest_enabled: cells[4].querySelector("input").checked,
       deferred_interest_date: cells[5].querySelector("input").value,
       deferred_interest_rate: Number(cells[6].querySelector("input").value || 0),
+      notes: row.dataset.note || "",
+      id: row.dataset.rowId,
     };
   });
 }
@@ -293,6 +373,19 @@ function renderChart(monthlyTotals, interestPaidOverTime, horizonPeriods, granul
     },
     options: {
       responsive: true,
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label(context) {
+              return `${context.dataset.label}: ${currency(Number(context.parsed.y || 0))}`;
+            },
+          },
+        },
+      },
       scales: {
         y: {
           ticks: {
