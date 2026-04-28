@@ -800,6 +800,7 @@ def calculate_debt_paydown(debts: list[DebtItem], monthly_budget: float, strateg
     balances = [debt.balance for debt in debts]
     payoff_order: list[str] = []
     monthly_totals: list[float] = []
+    interest_paid_over_time: list[float] = []
     allocations_timeline: list[dict] = []
     total_interest_paid = 0.0
 
@@ -856,6 +857,7 @@ def calculate_debt_paydown(debts: list[DebtItem], monthly_budget: float, strateg
                     balances[i] += deferred_penalty
 
         monthly_totals.append(sum(monthly_payments))
+        interest_paid_over_time.append(total_interest_paid)
         allocations_timeline.append(
             {
                 "month": month_index + 1,
@@ -890,6 +892,7 @@ def calculate_debt_paydown(debts: list[DebtItem], monthly_budget: float, strateg
         "payoff_order": payoff_order,
         "allocations_timeline": allocations_timeline,
         "monthly_totals": monthly_totals,
+        "interest_paid_over_time": interest_paid_over_time,
         "max_horizon_months": len(monthly_totals),
         "total_interest_paid": total_interest_paid,
         "months_to_debt_free": len(monthly_totals),

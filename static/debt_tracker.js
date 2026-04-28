@@ -10,6 +10,9 @@ const horizonLabel = document.getElementById("horizon_label");
 const monthsToFreeEl = document.getElementById("months-to-free");
 const totalInterestEl = document.getElementById("total-interest");
 const recommendedOrderEl = document.getElementById("recommended-order");
+const monthsCardEl = document.getElementById("debt-months-card");
+const interestCardEl = document.getElementById("debt-interest-card");
+const orderCardEl = document.getElementById("debt-order-card");
 const rankedTableBody = document.querySelector("#debt-ranked-table tbody");
 
 let debtChart;
@@ -130,9 +133,49 @@ function renderRankedOrder(rankedOrder) {
   });
 }
 
-function renderChart(monthlyTotals, horizon) {
+function getSummaryStatus(result) {
+  const payoffMonths = Number(result.months_to_debt_free || 0);
+  const interest = Number(result.total_interest_paid || 0);
+  const principal = Array.isArray(result.ranked_order)
+    ? result.ranked_order.reduce((sum, item) => sum + Number(item.starting_balance || 0), 0)
+    : 0;
+  const interestRatio = principal > 0 ? interest / principal : 0;
+
+  if (payoffMonths <= 24 && interestRatio <= 0.12) {
+    return "status-good";
+  }
+  if (payoffMonths <= 60 && interestRatio <= 0.3) {
+    return "status-mid";
+  }
+  return "status-low";
+}
+
+function applySummaryCardStatus(result) {
+  const status = getSummaryStatus(result);
+  [monthsCardEl, interestCardEl, orderCardEl].forEach((card) => {
+    card.classList.remove("status-good", "status-mid", "status-low");
+    card.classList.add(status);
+  });
+}
+
+function renderTopThreeRecommendations(rankedOrder) {
+  recommendedOrderEl.innerHTML = "";
+  const top = rankedOrder.slice(0, 3);
+  if (!top.length) {
+    recommendedOrderEl.innerHTML = "<li>—</li>";
+    return;
+  }
+  top.forEach((item) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = item.name;
+    recommendedOrderEl.appendChild(listItem);
+  });
+}
+
+function renderChart(monthlyTotals, interestPaidOverTime, horizon) {
   const labels = monthlyTotals.slice(0, horizon).map((_, index) => index + 1);
   const values = monthlyTotals.slice(0, horizon);
+  const interestSeries = interestPaidOverTime.slice(0, horizon);
   if (debtChart) {
     debtChart.destroy();
   }
@@ -149,6 +192,18 @@ function renderChart(monthlyTotals, horizon) {
           fill: true,
           tension: 0.2,
           pointRadius: 0,
+          yAxisID: "y",
+        },
+        {
+          label: "Cumulative Interest Paid",
+          data: interestSeries,
+          borderColor: "#f97316",
+          backgroundColor: "rgba(249, 115, 22, 0.12)",
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+          yAxisID: "y",
         },
       ],
     },
@@ -167,15 +222,16 @@ function renderChart(monthlyTotals, horizon) {
 
 function renderResult(result) {
   latestResult = result;
+  applySummaryCardStatus(result);
   const maxHorizon = Math.max(result.max_horizon_months, 1);
   horizonSlider.max = String(maxHorizon);
   horizonSlider.value = String(maxHorizon);
   horizonLabel.textContent = `Showing full max horizon (${maxHorizon} months).`;
   monthsToFreeEl.textContent = `${result.months_to_debt_free} months`;
   totalInterestEl.textContent = currency(result.total_interest_paid);
-  recommendedOrderEl.textContent = result.ranked_order.map((item) => item.name).join(" → ");
+  renderTopThreeRecommendations(result.ranked_order);
   renderRankedOrder(result.ranked_order);
-  renderChart(result.monthly_totals, maxHorizon);
+  renderChart(result.monthly_totals, result.interest_paid_over_time || [], maxHorizon);
 }
 
 async function calculateDebt() {
@@ -261,7 +317,7 @@ function initialize() {
     }
     const horizon = Number(horizonSlider.value || latestResult.max_horizon_months);
     horizonLabel.textContent = `Showing first ${horizon} months (${(horizon / 12).toFixed(1)} years).`;
-    renderChart(latestResult.monthly_totals, horizon);
+    renderChart(latestResult.monthly_totals, latestResult.interest_paid_over_time || [], horizon);
   });
   debtThemeToggle.addEventListener("click", () => {
     const next = document.body.classList.contains("dark-mode") ? "light" : "dark";
