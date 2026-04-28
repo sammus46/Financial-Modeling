@@ -217,8 +217,8 @@ function getTimeSeriesByGranularity(monthlyTotals, interestPaidOverTime, granula
     const weeksPerMonth = 4;
 
     labels.push(new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(monthStart));
-    values.push(Number(monthlyTotals[0] || 0));
-    interestValues.push(Number(monthlyInterest[0] || 0));
+    values.push(0);
+    interestValues.push(0);
 
     for (let monthIndex = 0; monthIndex < monthlyTotals.length; monthIndex += 1) {
       const prevTotal = monthIndex === 0 ? 0 : Number(monthlyTotals[monthIndex - 1] || 0);
