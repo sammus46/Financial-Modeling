@@ -5,7 +5,7 @@ const debtThemeToggle = document.getElementById("debt-theme-toggle");
 const errorEl = document.getElementById("debt-error");
 const strategySelect = document.getElementById("debt_strategy");
 const monthlyBudgetInput = document.getElementById("monthly_debt_budget");
-const horizonPeriodsInput = document.getElementById("horizon_periods");
+const horizonDateSlider = document.getElementById("horizon_date_slider");
 const graphGranularitySelect = document.getElementById("graph_granularity");
 const horizonLabel = document.getElementById("horizon_label");
 const monthsToFreeEl = document.getElementById("months-to-free");
@@ -52,9 +52,19 @@ function createInput(type, value = "", className = "") {
   return input;
 }
 
+function autosizeDebtNameField(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${Math.max(textarea.scrollHeight, 36)}px`;
+}
+
 function createDebtRow(row = {}) {
   const tr = document.createElement("tr");
-  const nameInput = createInput("text", row.name || "Debt");
+  const nameInput = document.createElement("textarea");
+  nameInput.value = row.name || "Debt";
+  nameInput.className = "debt-name-field";
+  nameInput.rows = 1;
+  autosizeDebtNameField(nameInput);
+
   const balanceInput = createInput("text", formatCurrencyInput(row.balance || "0"), "currency-field");
   const aprInput = createInput("number", row.annual_interest_rate ?? "19.99");
   aprInput.step = "0.01";
@@ -82,7 +92,12 @@ function createDebtRow(row = {}) {
       saveState();
     });
   });
-  [nameInput, aprInput, deferredDate, deferredRate].forEach((input) => input.addEventListener("change", saveState));
+
+  nameInput.addEventListener("input", () => {
+    autosizeDebtNameField(nameInput);
+    saveState();
+  });
+  [aprInput, deferredDate, deferredRate].forEach((input) => input.addEventListener("change", saveState));
 
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
@@ -109,7 +124,7 @@ function collectDebts() {
   return Array.from(debtTableBody.querySelectorAll("tr")).map((row) => {
     const cells = row.querySelectorAll("td");
     return {
-      name: cells[0].querySelector("input").value,
+      name: cells[0].querySelector("textarea, input").value,
       balance: parseCurrencyInput(cells[1].querySelector("input").value),
       annual_interest_rate: Number(cells[2].querySelector("input").value || 0),
       minimum_payment: parseCurrencyInput(cells[3].querySelector("input").value),
@@ -200,6 +215,11 @@ function getTimeSeriesByGranularity(monthlyTotals, interestPaidOverTime, granula
     const values = [];
     const interestValues = [];
     const weeksPerMonth = 4;
+
+    labels.push(new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(monthStart));
+    values.push(Number(monthlyTotals[0] || 0));
+    interestValues.push(Number(monthlyInterest[0] || 0));
+
     for (let monthIndex = 0; monthIndex < monthlyTotals.length; monthIndex += 1) {
       const prevTotal = monthIndex === 0 ? 0 : Number(monthlyTotals[monthIndex - 1] || 0);
       const currTotal = Number(monthlyTotals[monthIndex] || 0);
@@ -208,9 +228,7 @@ function getTimeSeriesByGranularity(monthlyTotals, interestPaidOverTime, granula
       for (let week = 1; week <= weeksPerMonth; week += 1) {
         const progress = week / weeksPerMonth;
         const date = addDays(addMonths(monthStart, monthIndex), week * 7);
-        labels.push(
-          new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date),
-        );
+        labels.push(new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date));
         values.push(prevTotal + (currTotal - prevTotal) * progress);
         interestValues.push(prevInterest + (currInterest - prevInterest) * progress);
       }
@@ -228,7 +246,7 @@ function getTimeSeriesByGranularity(monthlyTotals, interestPaidOverTime, granula
   const values = [];
   const interestValues = [];
 
-  for (let i = chunkSize - 1; i < monthlyTotals.length; i += chunkSize) {
+  for (let i = 0; i < monthlyTotals.length; i += chunkSize) {
     const monthDate = addMonths(monthStart, i);
     labels.push(new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(monthDate));
     values.push(Number(monthlyTotals[i] || 0));
@@ -296,33 +314,24 @@ function renderResult(result) {
   renderRankedOrder(result.ranked_order);
 }
 
-function getMaxPeriods(granularity, monthlyLength) {
-  if (granularity === "weeks") {
-    return monthlyLength * 4;
-  }
-  if (granularity === "quarters") {
-    return Math.max(Math.floor(monthlyLength / 3), 1);
-  }
-  if (granularity === "years") {
-    return Math.max(Math.floor(monthlyLength / 12), 1);
-  }
-  return Math.max(monthlyLength, 1);
-}
-
 function updateChartFromControls(useMax = false) {
   if (!latestResult) {
     return;
   }
   const granularity = graphGranularitySelect.value || "months";
-  const monthLength = Math.max((latestResult.monthly_totals || []).length, 1);
-  const maxPeriods = getMaxPeriods(granularity, monthLength);
-  horizonPeriodsInput.max = String(maxPeriods);
-  if (useMax || Number(horizonPeriodsInput.value || 0) > maxPeriods) {
-    horizonPeriodsInput.value = String(maxPeriods);
+  const series = getTimeSeriesByGranularity(
+    latestResult.monthly_totals || [],
+    latestResult.interest_paid_over_time || [],
+    granularity,
+  );
+  const maxPeriods = Math.max(series.labels.length, 1);
+  horizonDateSlider.max = String(maxPeriods);
+  if (useMax || Number(horizonDateSlider.value || 0) > maxPeriods) {
+    horizonDateSlider.value = String(maxPeriods);
   }
-  const selectedPeriods = Math.min(Math.max(Number(horizonPeriodsInput.value || 1), 1), maxPeriods);
-  const periodLabel = granularity === "weeks" ? "weeks" : granularity;
-  horizonLabel.textContent = `Showing first ${selectedPeriods} ${periodLabel} (max ${maxPeriods}).`;
+  const selectedPeriods = Math.min(Math.max(Number(horizonDateSlider.value || 1), 1), maxPeriods);
+  const selectedDateLabel = series.labels[selectedPeriods - 1] || "—";
+  horizonLabel.textContent = `Showing through ${selectedDateLabel} (${selectedPeriods} of ${maxPeriods} points).`;
   renderChart(
     latestResult.monthly_totals,
     latestResult.interest_paid_over_time || [],
@@ -359,7 +368,7 @@ function saveState() {
     strategy: strategySelect.value,
     monthly_budget: parseCurrencyInput(monthlyBudgetInput.value),
     graph_granularity: graphGranularitySelect.value,
-    horizon_periods: Number(horizonPeriodsInput.value || 0),
+    horizon_periods: Number(horizonDateSlider.value || 0),
     debts: collectDebts(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -404,7 +413,7 @@ function initialize() {
   monthlyBudgetInput.value = formatCurrencyInput(state?.monthly_budget || monthlyBudgetInput.value);
   graphGranularitySelect.value = state?.graph_granularity || "months";
   if (state?.horizon_periods) {
-    horizonPeriodsInput.value = String(state.horizon_periods);
+    horizonDateSlider.value = String(state.horizon_periods);
   }
 
   addDebtRowButton.addEventListener("click", () => createDebtRow({}));
@@ -414,7 +423,7 @@ function initialize() {
     monthlyBudgetInput.value = formatCurrencyInput(monthlyBudgetInput.value);
     saveState();
   });
-  horizonPeriodsInput.addEventListener("input", () => {
+  horizonDateSlider.addEventListener("input", () => {
     updateChartFromControls();
     saveState();
   });
