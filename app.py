@@ -30,6 +30,9 @@ class RetirementInputs:
     contribution_mode: str
     savings_rate: float
     fixed_annual_contribution: float
+    traditional_contribution_pct: float
+    roth_contribution_pct: float
+    brokerage_contribution_pct: float
     inflation_rate: float
     traditional_return_rate: float
     roth_return_rate: float
@@ -162,6 +165,9 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             contribution_mode=str(payload["contribution_mode"]),
             savings_rate=_parse_float(payload, "savings_rate"),
             fixed_annual_contribution=_parse_float(payload, "fixed_annual_contribution"),
+            traditional_contribution_pct=_parse_float(payload, "traditional_contribution_pct", default=34.0),
+            roth_contribution_pct=_parse_float(payload, "roth_contribution_pct", default=33.0),
+            brokerage_contribution_pct=_parse_float(payload, "brokerage_contribution_pct", default=33.0),
             inflation_rate=_parse_float(payload, "inflation_rate"),
             traditional_return_rate=_parse_float(payload, "traditional_return_rate"),
             roth_return_rate=_parse_float(payload, "roth_return_rate"),
@@ -213,6 +219,9 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     percent_fields = {
         "salary growth rate": data.salary_growth_rate,
         "savings rate": data.savings_rate,
+        "traditional contribution percent": data.traditional_contribution_pct,
+        "roth contribution percent": data.roth_contribution_pct,
+        "brokerage contribution percent": data.brokerage_contribution_pct,
         "inflation rate": data.inflation_rate,
         "traditional pre-tax return rate": data.traditional_return_rate,
         "roth pre-tax return rate": data.roth_return_rate,
@@ -225,6 +234,11 @@ def parse_inputs(payload: dict) -> RetirementInputs:
     for field_name, value in percent_fields.items():
         if not 0 <= value <= 100:
             raise ValidationError(f"{field_name.title()} must be between 0 and 100.")
+    contribution_total_pct = (
+        data.traditional_contribution_pct + data.roth_contribution_pct + data.brokerage_contribution_pct
+    )
+    if not isclose(contribution_total_pct, 100.0, abs_tol=1e-6):
+        raise ValidationError("Traditional, Roth, and brokerage contribution percentages must sum to 100.")
     if isclose(data.desired_swr, 0.0):
         raise ValidationError("Desired SWR must be greater than 0.")
 
@@ -405,7 +419,11 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
     roth_balance = data.roth_assets
     brokerage_balance = data.brokerage_assets
 
-    weights = _safe_allocation_weights(trad_balance, roth_balance, brokerage_balance)
+    contribution_weights = (
+        _to_decimal(data.traditional_contribution_pct),
+        _to_decimal(data.roth_contribution_pct),
+        _to_decimal(data.brokerage_contribution_pct),
+    )
 
     ages = [data.current_age]
     pre_tax_balances = [trad_balance + roth_balance + brokerage_balance]
@@ -427,9 +445,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
             fixed_contribution *= escalation
         total_contribution = percent_contribution + fixed_contribution
 
-        trad_contrib = total_contribution * weights[0]
-        roth_contrib = total_contribution * weights[1]
-        brokerage_contrib = total_contribution * weights[2]
+        trad_contrib = total_contribution * contribution_weights[0]
+        roth_contrib = total_contribution * contribution_weights[1]
+        brokerage_contrib = total_contribution * contribution_weights[2]
 
         if data.enable_glidepath:
             progress = (i - 1) / max(years_to_retirement, 1)
@@ -467,6 +485,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         + (data.fixed_annual_contribution if data.contribution_mode == "fixed" else 0.0)
         + extra_fixed_contribution
     )
+    first_year_traditional_contribution = starting_total_contribution * contribution_weights[0]
+    first_year_roth_contribution = starting_total_contribution * contribution_weights[1]
+    first_year_brokerage_contribution = starting_total_contribution * contribution_weights[2]
 
     return {
         "ages": ages,
@@ -480,6 +501,9 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         "brokerage_balance": brokerage_balance,
         "projected_income_at_retirement": income,
         "starting_total_contribution": starting_total_contribution,
+        "first_year_traditional_contribution": first_year_traditional_contribution,
+        "first_year_roth_contribution": first_year_roth_contribution,
+        "first_year_brokerage_contribution": first_year_brokerage_contribution,
     }
 
 
@@ -639,6 +663,9 @@ def calculate_projection(data: RetirementInputs) -> dict:
         },
         "insights": {
             "starting_total_annual_contribution": projection["starting_total_contribution"],
+            "first_year_effective_traditional_contribution": projection["first_year_traditional_contribution"],
+            "first_year_effective_roth_contribution": projection["first_year_roth_contribution"],
+            "first_year_effective_brokerage_contribution": projection["first_year_brokerage_contribution"],
             "required_additional_annual_contribution": required_extra_annual_contribution,
             "total_annual_contribution_needed": total_annual_contribution_needed,
             "estimated_savings_rate_needed_pct": savings_rate_needed_pct,
@@ -671,7 +698,11 @@ def run_monte_carlo(data: RetirementInputs, target_nest_egg: float) -> dict:
         brokerage_balance = data.brokerage_assets
         income = data.annual_income
         savings_rate = _to_decimal(data.savings_rate)
-        weights = _safe_allocation_weights(trad_balance, roth_balance, brokerage_balance)
+        contribution_weights = (
+            _to_decimal(data.traditional_contribution_pct),
+            _to_decimal(data.roth_contribution_pct),
+            _to_decimal(data.brokerage_contribution_pct),
+        )
         for year in range(1, years_to_retirement + 1):
             sampled_inflation = max(-0.05, rng.gauss(_to_decimal(data.inflation_rate), inflation_stddev))
             sampled_trad = max(-0.95, rng.gauss(_to_decimal(data.traditional_return_rate), return_stddev))
@@ -684,9 +715,9 @@ def run_monte_carlo(data: RetirementInputs, target_nest_egg: float) -> dict:
                 percent_contribution *= escalation
                 fixed_contribution *= escalation
             total_contribution = percent_contribution + fixed_contribution
-            trad_contrib = total_contribution * weights[0]
-            roth_contrib = total_contribution * weights[1]
-            brokerage_contrib = total_contribution * weights[2]
+            trad_contrib = total_contribution * contribution_weights[0]
+            roth_contrib = total_contribution * contribution_weights[1]
+            brokerage_contrib = total_contribution * contribution_weights[2]
             trad_balance = trad_balance * (1 + sampled_trad) + trad_contrib
             roth_balance = roth_balance * (1 + sampled_roth) + roth_contrib
             brokerage_balance = brokerage_balance * (1 + sampled_brokerage) + brokerage_contrib
