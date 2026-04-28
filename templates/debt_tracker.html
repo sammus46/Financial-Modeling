@@ -6,6 +6,7 @@
     <title>Debt Tracker & Paydown Optimizer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   </head>
   <body>
     <nav class="tool-nav" aria-label="Tool navigation">
@@ -85,7 +86,10 @@
           </article>
         </section>
         <section class="panel">
-          <h2>Total Payments Over Time</h2>
+          <div class="panel-header">
+            <h2>Total Payments Over Time</h2>
+            <button id="debt-export-xlsx-btn" type="button" class="secondary-btn">Export .xlsx</button>
+          </div>
           <canvas id="debtChart"></canvas>
           <div class="debt-chart-controls">
             <label for="graph_granularity">
