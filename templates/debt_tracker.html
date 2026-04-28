@@ -36,11 +36,6 @@
             Monthly debt budget ($)
             <input id="monthly_debt_budget" type="text" inputmode="decimal" value="$1,500" />
           </label>
-          <label for="horizon_slider">
-            Horizon slice (months)
-            <input id="horizon_slider" type="range" min="1" max="360" value="360" />
-          </label>
-          <p id="horizon_label" class="field-help">Showing full max horizon.</p>
         </section>
 
         <div class="table-wrapper">
@@ -67,22 +62,31 @@
 
       <section class="results-panel">
         <section class="summary-grid">
-          <article class="summary-card">
+          <article class="summary-card" id="debt-months-card">
             <p class="summary-label">Months to debt free</p>
             <p id="months-to-free" class="summary-value">—</p>
           </article>
-          <article class="summary-card">
+          <article class="summary-card" id="debt-interest-card">
             <p class="summary-label">Total interest paid</p>
             <p id="total-interest" class="summary-value">—</p>
           </article>
-          <article class="summary-card">
-            <p class="summary-label">Recommended order</p>
-            <p id="recommended-order" class="summary-value">—</p>
+          <article class="summary-card" id="debt-order-card">
+            <p class="summary-label">Recommended order (Top 3)</p>
+            <ol id="recommended-order" class="summary-value summary-top-list">
+              <li>—</li>
+            </ol>
           </article>
         </section>
         <section class="panel">
           <h2>Total Payments Over Time</h2>
           <canvas id="debtChart"></canvas>
+          <div class="debt-chart-controls">
+            <label for="horizon_slider">
+              Horizon slice (months)
+              <input id="horizon_slider" type="range" min="1" max="360" value="360" />
+            </label>
+            <p id="horizon_label" class="field-help">Showing full max horizon.</p>
+          </div>
         </section>
         <section class="panel">
           <h2>Ranked Paydown Order</h2>
