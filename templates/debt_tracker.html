@@ -61,7 +61,7 @@
       </section>
 
       <section class="results-panel">
-        <section class="summary-grid">
+        <section class="summary-grid debt-summary-grid">
           <article class="summary-card" id="debt-months-card">
             <p class="summary-label">Months to debt free</p>
             <p id="months-to-free" class="summary-value">—</p>
@@ -90,9 +90,9 @@
                 <option value="years">Years</option>
               </select>
             </label>
-            <label for="horizon_periods">
-              Periods to show
-              <input id="horizon_periods" type="number" min="1" step="1" value="12" />
+            <label for="horizon_date_slider">
+              End date
+              <input id="horizon_date_slider" type="range" min="1" step="1" value="12" />
             </label>
             <p id="horizon_label" class="field-help">Showing full max horizon.</p>
           </div>

@@ -864,6 +864,33 @@ body.dark-mode #projection-table td.gap-negative {
   width: 100%;
 }
 
+.debt-chart-controls input[type="range"] {
+  padding: 0;
+}
+
+.debt-summary-grid .summary-card,
+.debt-summary-grid .summary-label,
+.debt-summary-grid .summary-value {
+  text-align: center;
+}
+
+.debt-summary-grid .summary-top-list {
+  display: inline-block;
+  text-align: left;
+}
+
+#debt-table td:first-child {
+  min-width: 13rem;
+}
+
+#debt-table .debt-name-field {
+  width: 100%;
+  min-height: 2.2rem;
+  resize: vertical;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
 .summary-top-list {
   margin: 0.35rem 0 0;
   padding-left: 1.2rem;
