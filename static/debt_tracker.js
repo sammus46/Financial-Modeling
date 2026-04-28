@@ -16,6 +16,7 @@ const interestCardEl = document.getElementById("debt-interest-card");
 const orderCardEl = document.getElementById("debt-order-card");
 const rankedTableBody = document.querySelector("#debt-ranked-table tbody");
 const debtNotesList = document.getElementById("debt-notes-list");
+const debtExportButton = document.getElementById("debt-export-xlsx-btn");
 
 let debtChart;
 let latestResult = null;
@@ -399,12 +400,56 @@ function renderChart(monthlyTotals, interestPaidOverTime, horizonPeriods, granul
 
 function renderResult(result) {
   latestResult = result;
+  if (debtExportButton) {
+    debtExportButton.disabled = false;
+  }
   applySummaryCardStatus(result);
   updateChartFromControls(true);
   monthsToFreeEl.textContent = `${result.months_to_debt_free} months`;
   totalInterestEl.textContent = currency(result.total_interest_paid);
   renderTopThreeRecommendations(result.ranked_order);
   renderRankedOrder(result.ranked_order);
+}
+
+function formatIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function exportDebtTimelineToXlsx() {
+  if (!latestResult?.allocations_timeline?.length) {
+    errorEl.textContent = "Run a calculation before exporting.";
+    return;
+  }
+  if (!window.XLSX) {
+    errorEl.textContent = "Spreadsheet export is unavailable right now. Please refresh and try again.";
+    return;
+  }
+  errorEl.textContent = "";
+
+  const debtNames = Array.from(
+    new Set(latestResult.allocations_timeline.flatMap((entry) => (entry.payments || []).map((payment) => payment.name || "Debt"))),
+  );
+
+  const baseDate = firstOfCurrentMonth();
+  const headers = ["Expense / Debt", ...latestResult.allocations_timeline.map((_, index) => formatIsoDate(addMonths(baseDate, index)))];
+  const sheetRows = [headers];
+
+  debtNames.forEach((name) => {
+    const row = [name];
+    latestResult.allocations_timeline.forEach((entry) => {
+      const payment = (entry.payments || []).find((item) => item.name === name);
+      row.push(Number(payment?.payment || 0));
+    });
+    sheetRows.push(row);
+  });
+
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Debt Paydown");
+  XLSX.writeFile(workbook, "debt-paydown-schedule.xlsx");
 }
 
 function updateChartFromControls(useMax = false) {
@@ -511,6 +556,10 @@ function initialize() {
 
   addDebtRowButton.addEventListener("click", () => createDebtRow({}));
   calculateDebtButton.addEventListener("click", calculateDebt);
+  if (debtExportButton) {
+    debtExportButton.disabled = true;
+    debtExportButton.addEventListener("click", exportDebtTimelineToXlsx);
+  }
   strategySelect.addEventListener("change", saveState);
   monthlyBudgetInput.addEventListener("input", () => {
     monthlyBudgetInput.value = formatCurrencyInput(monthlyBudgetInput.value);
