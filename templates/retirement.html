@@ -127,6 +127,58 @@
               </label>
             </div>
             </details>
+
+            <details class="form-section">
+            <summary><h2>Advanced Options</h2></summary>
+            <div class="section-body">
+              <label class="radio">
+                <input type="checkbox" name="enable_monte_carlo" id="enable_monte_carlo" />
+                Enable Monte Carlo simulation
+              </label>
+              <label for="monte_carlo_trials">
+                Monte Carlo trials
+                <input id="monte_carlo_trials" type="number" name="monte_carlo_trials" value="1000" min="100" max="20000" step="100" />
+              </label>
+              <label for="monte_carlo_return_stddev">
+                Return volatility assumption (%) <span class="field-tag optional">Advanced</span>
+                <input id="monte_carlo_return_stddev" type="number" name="monte_carlo_return_stddev" value="12" min="0" max="100" step="0.1" />
+              </label>
+              <label for="monte_carlo_inflation_stddev">
+                Inflation volatility assumption (%) <span class="field-tag optional">Advanced</span>
+                <input id="monte_carlo_inflation_stddev" type="number" name="monte_carlo_inflation_stddev" value="1" min="0" max="100" step="0.1" />
+              </label>
+
+              <label class="radio">
+                <input type="checkbox" name="enable_contribution_escalation" id="enable_contribution_escalation" />
+                Enable annual contribution escalation
+              </label>
+              <label for="contribution_escalation_rate">
+                Contribution escalation rate (%)
+                <input id="contribution_escalation_rate" type="number" name="contribution_escalation_rate" value="2" min="0" max="100" step="0.1" />
+              </label>
+
+              <label class="radio">
+                <input type="checkbox" name="enable_glidepath" id="enable_glidepath" />
+                Enable glidepath returns
+              </label>
+              <label for="glidepath_equity_start">
+                Glidepath equity start (%)
+                <input id="glidepath_equity_start" type="number" name="glidepath_equity_start" value="75" min="0" max="100" step="0.1" />
+              </label>
+              <label for="glidepath_equity_end">
+                Glidepath equity end (%)
+                <input id="glidepath_equity_end" type="number" name="glidepath_equity_end" value="50" min="0" max="100" step="0.1" />
+              </label>
+              <label for="glidepath_equity_return_rate">
+                Equity return assumption (%)
+                <input id="glidepath_equity_return_rate" type="number" name="glidepath_equity_return_rate" value="9" min="0" max="100" step="0.1" />
+              </label>
+              <label for="glidepath_bond_return_rate">
+                Bond return assumption (%)
+                <input id="glidepath_bond_return_rate" type="number" name="glidepath_bond_return_rate" value="4" min="0" max="100" step="0.1" />
+              </label>
+            </div>
+            </details>
           </form>
         </div>
       </aside>
@@ -166,6 +218,7 @@
                 <button type="button" class="viz-toggle is-active" data-chart-mode="balance">Balance</button>
                 <button type="button" class="viz-toggle" data-chart-mode="gap">Goal gap</button>
                 <button type="button" class="viz-toggle" data-chart-mode="progress">Goal progress %</button>
+                <button type="button" class="viz-toggle" data-chart-mode="probability">Probability band</button>
               </div>
             </div>
           </div>

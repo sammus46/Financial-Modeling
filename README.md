@@ -3,7 +3,7 @@
 A Flask + vanilla JS financial modeling suite with multiple tools:
 
 - Input your current financial assumptions.
-- Launch the Retirement Planner or Emergency Fund Calculator from a dashboard.
+- Launch the Retirement Planner, Emergency Fund Calculator, or Debt Tracker from a dashboard.
 - Visualize portfolio/fund projections with charts and goal metrics.
 
 ## Run locally
@@ -21,14 +21,16 @@ Routes:
 - `/` dashboard
 - `/apps/retirement` retirement planner
 - `/apps/emergency-fund` emergency fund calculator
+- `/apps/debt-tracker` debt tracker & paydown optimizer
 
 ## Smoke test
 
 Run a quick backend/UI wiring smoke test:
 - checks `GET /` returns 200
-- checks app routes load (`/apps/retirement`, `/apps/emergency-fund`)
+- checks app routes load (`/apps/retirement`, `/apps/emergency-fund`, `/apps/debt-tracker`)
 - checks retirement calculation succeeds for both contribution modes (`percent` + `fixed`)
 - checks emergency fund calculation succeeds
+- checks debt tracker calculation succeeds
 
 ```bash
 pip install -r requirements.txt
@@ -38,7 +40,7 @@ python scripts/smoke_test.py
 Expected output:
 
 ```text
-Smoke test passed: dashboard + retirement + emergency fund endpoints are healthy.
+Smoke test passed: dashboard + retirement + emergency fund + debt tracker endpoints are healthy.
 ```
 
 ## UI screenshots in Codex/CI

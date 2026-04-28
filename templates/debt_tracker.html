@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debt Tracker & Paydown Optimizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <a class="tool-back-btn" href="{{ url_for('index') }}" aria-label="Back to Dashboard">
+      <span aria-hidden="true">←</span>
+      <span>Dashboard</span>
+    </a>
+    <main class="app-shell emergency-shell">
+      <section class="panel emergency-panel">
+        <div class="panel-top-card">
+          <h1>Debt Tracker & Paydown Optimizer</h1>
+          <p class="subtitle">Track balances, compare avalanche vs snowball, and project payoff over time.</p>
+          <div class="actions actions-top">
+            <button id="calculate-debt-btn" type="button">Calculate</button>
+            <button id="debt-theme-toggle" type="button" class="secondary-btn" aria-pressed="false">Dark mode</button>
+          </div>
+        </div>
+        <p id="debt-error" class="error" role="alert" aria-live="polite"></p>
+
+        <section class="panel emergency-controls">
+          <label for="debt_strategy">
+            Paydown strategy
+            <select id="debt_strategy">
+              <option value="avalanche">Avalanche (highest APR first)</option>
+              <option value="snowball">Snowball (lowest balance first)</option>
+            </select>
+          </label>
+          <label for="monthly_debt_budget">
+            Monthly debt budget ($)
+            <input id="monthly_debt_budget" type="text" inputmode="decimal" value="$1,500" />
+          </label>
+          <label for="horizon_slider">
+            Horizon slice (months)
+            <input id="horizon_slider" type="range" min="1" max="360" value="360" />
+          </label>
+          <p id="horizon_label" class="field-help">Showing full max horizon.</p>
+        </section>
+
+        <div class="table-wrapper">
+          <table id="debt-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Balance ($)</th>
+                <th>APR (%)</th>
+                <th>Min Payment ($)</th>
+                <th>Deferred Interest?</th>
+                <th>Deferred Date</th>
+                <th>Deferred APR (%)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions emergency-table-actions">
+          <button id="add-debt-row-btn" type="button" class="secondary-btn">Add Debt Row</button>
+        </div>
+      </section>
+
+      <section class="results-panel">
+        <section class="summary-grid">
+          <article class="summary-card">
+            <p class="summary-label">Months to debt free</p>
+            <p id="months-to-free" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Total interest paid</p>
+            <p id="total-interest" class="summary-value">—</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Recommended order</p>
+            <p id="recommended-order" class="summary-value">—</p>
+          </article>
+        </section>
+        <section class="panel">
+          <h2>Total Payments Over Time</h2>
+          <canvas id="debtChart"></canvas>
+        </section>
+        <section class="panel">
+          <h2>Ranked Paydown Order</h2>
+          <table id="debt-ranked-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Debt</th>
+                <th>APR</th>
+                <th>Min Payment</th>
+                <th>Deferred Interest Date</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='debt_tracker.js', v=static_version) }}"></script>
+  </body>
+</html>
