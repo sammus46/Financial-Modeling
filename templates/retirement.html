@@ -8,10 +8,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
-    <a class="tool-back-btn" href="{{ url_for('index') }}" aria-label="Back to Dashboard">
-      <span aria-hidden="true">←</span>
-      <span>Dashboard</span>
-    </a>
+    <nav class="tool-nav" aria-label="Tool navigation">
+      <a class="tool-nav-link" href="{{ url_for('index') }}">← Back to Dashboard</a>
+      <a class="tool-nav-link tool-nav-link-active" href="{{ url_for('retirement_app') }}" aria-current="page">Retirement Planner</a>
+      <a class="tool-nav-link" href="{{ url_for('emergency_fund_app') }}">Emergency Fund</a>
+      <a class="tool-nav-link" href="{{ url_for('debt_tracker_app') }}">Debt Tracker</a>
+    </nav>
     <main class="app-layout">
       <aside class="inputs-panel">
         <section class="panel-top-card">
