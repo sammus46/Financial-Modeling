@@ -34,6 +34,15 @@
             <span aria-hidden="true">→</span>
           </a>
         </article>
+
+        <article class="app-card panel">
+          <h2>Debt Tracker & Paydown Optimizer</h2>
+          <p>Rank debts using avalanche or snowball, account for deferred interest dates, and chart payment timelines.</p>
+          <a class="app-link app-launch-btn" href="{{ url_for('debt_tracker_app') }}">
+            <span>Open Debt Tracker</span>
+            <span aria-hidden="true">→</span>
+          </a>
+        </article>
       </section>
     </main>
     <script src="{{ url_for('static', filename='dashboard.js', v=static_version) }}"></script>

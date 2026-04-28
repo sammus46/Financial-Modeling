@@ -56,6 +56,11 @@ def run() -> None:
         emergency_html = emergency_page.get_data(as_text=True)
         assert_ok("emergency_fund.js?v=" in emergency_html, "emergency page should include emergency_fund.js")
 
+        debt_page = client.get("/apps/debt-tracker")
+        assert_ok(debt_page.status_code == 200, "GET /apps/debt-tracker should return 200")
+        debt_html = debt_page.get_data(as_text=True)
+        assert_ok("debt_tracker.js?v=" in debt_html, "debt page should include debt_tracker.js")
+
         percent_payload = build_base_payload()
         percent_payload.update(
             {
@@ -84,6 +89,21 @@ def run() -> None:
         assert_ok("stats" in fixed_data, "fixed mode response should contain stats")
         assert_ok(len(fixed_data.get("post_tax_balances", [])) > 1, "fixed mode should contain balances")
 
+        monte_payload = build_base_payload()
+        monte_payload.update(
+            {
+                "contribution_mode": "percent",
+                "savings_rate": "20",
+                "fixed_annual_contribution": "0",
+                "enable_monte_carlo": True,
+                "monte_carlo_trials": 1000,
+            }
+        )
+        monte_response = client.post("/api/retirement/calculate", json=monte_payload)
+        assert_ok(monte_response.status_code == 200, "Monte Carlo retirement request should return 200")
+        monte_data = monte_response.get_json() or {}
+        assert_ok("monte_carlo" in monte_data, "Monte Carlo response should include monte_carlo payload")
+
         emergency_payload = {
             "current_fund_amount": "5000",
             "expenses": [
@@ -99,8 +119,19 @@ def run() -> None:
                     "enabled": True,
                     "expense_class": "Financial Obligations",
                     "name": "Rent",
-                    "weekly_amount": "500",
+                    "frequency": "monthly",
+                    "weekly_amount": "0",
                     "monthly_amount": "2000",
+                    "notes": "",
+                },
+                {
+                    "enabled": True,
+                    "expense_class": "Irregular",
+                    "name": "Annual membership",
+                    "frequency": "annual",
+                    "weekly_amount": "0",
+                    "monthly_amount": "1200",
+                    "irregular_month": "9",
                     "notes": "",
                 },
             ],
@@ -116,7 +147,36 @@ def run() -> None:
             "emergency response projections should be 3..24 in 3-month increments",
         )
 
-    print("Smoke test passed: dashboard + retirement + emergency fund endpoints are healthy.")
+        debt_payload = {
+            "strategy": "avalanche",
+            "monthly_budget": "1500",
+            "debts": [
+                {
+                    "name": "Credit Card A",
+                    "balance": "3500",
+                    "annual_interest_rate": "24.99",
+                    "minimum_payment": "100",
+                    "deferred_interest_enabled": False,
+                },
+                {
+                    "name": "Store Promo Card",
+                    "balance": "1200",
+                    "annual_interest_rate": "19.99",
+                    "minimum_payment": "35",
+                    "deferred_interest_enabled": True,
+                    "deferred_interest_date": "2026-12-01",
+                    "deferred_interest_rate": "29.99",
+                },
+            ],
+        }
+        debt_response = client.post("/api/debt-tracker/calculate", json=debt_payload)
+        assert_ok(debt_response.status_code == 200, "POST /api/debt-tracker/calculate should return 200")
+        debt_data = debt_response.get_json() or {}
+        assert_ok("ranked_order" in debt_data, "debt response should include ranked order")
+        assert_ok("monthly_totals" in debt_data, "debt response should include monthly totals")
+        assert_ok(debt_data.get("max_horizon_months", 0) > 0, "debt response should include a positive horizon")
+
+    print("Smoke test passed: dashboard + retirement + emergency fund + debt tracker endpoints are healthy.")
 
 
 if __name__ == "__main__":

@@ -98,7 +98,13 @@ function setTheme(mode) {
   localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
 
   if (latestChartData) {
-    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
+    renderChart(
+      latestChartData.ages,
+      latestChartData.postTaxBalances,
+      latestChartData.goalLine,
+      latestChartData.dynamicGoalLine,
+      latestChartData.monteCarlo,
+    );
   }
 }
 
@@ -150,7 +156,7 @@ function getMetricStatus(key, actual, goal) {
   return "status-low";
 }
 
-function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
+function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarlo = null) {
   if (typeof Chart === "undefined") {
     logDebug("Chart.js is unavailable on window; skipping chart render.");
     return;
@@ -172,11 +178,17 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
   const theme = getChartTheme();
   const selectedGoalLine = selectedGoalMode === "dynamic" ? dynamicGoalLine : goalLine;
   const goalSeriesLabel = selectedGoalMode === "dynamic" ? "Dynamic Goal" : "Retirement Goal";
+  const usingProbability = selectedChartMode === "probability" && monteCarlo?.path_percentiles;
+  const probabilityP10 = usingProbability ? monteCarlo.path_percentiles.p10 : [];
+  const probabilityP50 = usingProbability ? monteCarlo.path_percentiles.p50 : [];
+  const probabilityP90 = usingProbability ? monteCarlo.path_percentiles.p90 : [];
   const chartSeries =
     selectedChartMode === "gap"
       ? postTaxBalances.map((value, index) => value - selectedGoalLine[index])
       : selectedChartMode === "progress"
         ? postTaxBalances.map((value, index) => (selectedGoalLine[index] > 0 ? (value / selectedGoalLine[index]) * 100 : 0))
+        : usingProbability
+          ? probabilityP50
         : postTaxBalances;
   const benchmarkSeries =
     selectedChartMode === "gap"
@@ -215,6 +227,8 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
       ? "Gap vs Retirement Goal"
       : selectedChartMode === "progress"
         ? "Goal Progress"
+        : selectedChartMode === "probability"
+          ? "Monte Carlo Median Path"
         : "Portfolio Value (Post-Tax)";
   const yTickFormatter =
     selectedChartMode === "gap"
@@ -266,6 +280,31 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
           pointStyle: "circle",
           showLine: false,
         },
+        ...(usingProbability
+          ? [
+              {
+                label: "P10 Path",
+                data: probabilityP10,
+                borderColor: "#dc2626",
+                borderDash: [4, 4],
+                fill: false,
+                pointRadius: 0,
+                borderWidth: 1.5,
+                tension: 0.2,
+              },
+              {
+                label: "P90 Path",
+                data: probabilityP90,
+                borderColor: "#16a34a",
+                borderDash: [4, 4],
+                fill: "-1",
+                backgroundColor: "rgba(37, 99, 235, 0.12)",
+                pointRadius: 0,
+                borderWidth: 1.5,
+                tension: 0.2,
+              },
+            ]
+          : []),
       ],
     },
     options: {
@@ -371,7 +410,7 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine) {
     },
   });
 
-  latestChartData = { ages, postTaxBalances, goalLine, dynamicGoalLine };
+  latestChartData = { ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarlo };
 }
 
 function setChartMode(mode) {
@@ -383,7 +422,7 @@ function setChartMode(mode) {
   });
 
   if (latestChartData) {
-    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine, latestChartData.monteCarlo);
   }
 }
 
@@ -402,7 +441,7 @@ function setGoalMode(mode) {
   localStorage.setItem(GOAL_MODE_KEY, selectedGoalMode);
   applyGoalModeToggleUi();
   if (latestChartData) {
-    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine);
+    renderChart(latestChartData.ages, latestChartData.postTaxBalances, latestChartData.goalLine, latestChartData.dynamicGoalLine, latestChartData.monteCarlo);
   }
 }
 
@@ -581,6 +620,12 @@ function validateForm(payload) {
   if (mode === "fixed" && fixedContributionValue <= 0) {
     errors.push({ field: "fixed_annual_contribution", message: "Fixed annual contribution must be greater than $0 in fixed mode." });
   }
+  if (payload.enable_monte_carlo === true || payload.enable_monte_carlo === "true") {
+    const trials = number("monte_carlo_trials");
+    if (trials < 100 || trials > 20000) {
+      errors.push({ field: "monte_carlo_trials", message: "Monte Carlo trials must be between 100 and 20000." });
+    }
+  }
 
   return errors;
 }
@@ -641,6 +686,9 @@ async function handleSubmit(event) {
     const fixedContributionValue = Number(parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"));
     payload.savings_rate = mode === "percent" ? form.elements["savings_rate"].value || "0" : "0";
     payload.fixed_annual_contribution = mode === "fixed" ? String(fixedContributionValue) : "0";
+    payload.enable_monte_carlo = Boolean(form.elements["enable_monte_carlo"]?.checked);
+    payload.enable_contribution_escalation = Boolean(form.elements["enable_contribution_escalation"]?.checked);
+    payload.enable_glidepath = Boolean(form.elements["enable_glidepath"]?.checked);
     logDebug("Prepared payload.", payload);
 
     const response = await fetch("/api/retirement/calculate", {
@@ -673,7 +721,13 @@ async function handleSubmit(event) {
       hasStats: Boolean(data.stats),
     });
 
-    renderChart(data.ages, data.post_tax_balances, data.goal_line, data.dynamic_goal_line || data.goal_line);
+    renderChart(
+      data.ages,
+      data.post_tax_balances,
+      data.goal_line,
+      data.dynamic_goal_line || data.goal_line,
+      data.monte_carlo || null,
+    );
     renderStats(data.stats);
     renderSummary(data.stats);
     saveFormValues();

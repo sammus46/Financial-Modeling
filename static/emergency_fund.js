@@ -15,7 +15,6 @@ const monthlyContributionInput = document.getElementById("monthly_contribution_a
 const contributionMonthsInput = document.getElementById("contribution_months");
 const currentTargetCoverageMonthsInput = document.getElementById("current_target_coverage_months");
 const expenseNotesList = document.getElementById("expense-notes-list");
-const totalWeeklyEl = document.getElementById("table-total-weekly");
 const totalMonthlyEl = document.getElementById("table-total-monthly");
 
 let emergencyChart;
@@ -24,11 +23,11 @@ let latestProjectionData = null;
 let rowIdCounter = 0;
 
 const DEFAULT_ROWS = [
-  { expense_class: "Weekly Necessities", name: "Groceries", weekly_amount: "", monthly_amount: 900, enabled: true, active_period: "monthly" },
-  { expense_class: "Weekly Necessities", name: "Gas", weekly_amount: "", monthly_amount: 200, enabled: true, active_period: "monthly" },
-  { expense_class: "Transportation", name: "Auto Insurance", weekly_amount: "", monthly_amount: 133.33, enabled: true, active_period: "monthly" },
-  { expense_class: "Financial Obligations", name: "Rent + renters insurance", weekly_amount: "", monthly_amount: 2000, enabled: true, active_period: "monthly" },
-  { expense_class: "Financial Obligations", name: "Student loan payment", weekly_amount: "", monthly_amount: 61.4, enabled: true, active_period: "monthly" },
+  { expense_class: "Weekly Necessities", name: "Groceries", frequency: "monthly", monthly_amount: 900, enabled: true },
+  { expense_class: "Weekly Necessities", name: "Gas", frequency: "monthly", monthly_amount: 200, enabled: true },
+  { expense_class: "Transportation", name: "Auto Insurance", frequency: "monthly", monthly_amount: 133.33, enabled: true },
+  { expense_class: "Financial Obligations", name: "Rent + renters insurance", frequency: "monthly", monthly_amount: 2000, enabled: true },
+  { expense_class: "Financial Obligations", name: "Student loan payment", frequency: "monthly", monthly_amount: 61.4, enabled: true },
 ];
 const STORAGE_KEY = "emergency-fund-form-v2";
 const LEGACY_STORAGE_KEYS = ["emergency-fund-form-v1", "emergency-fund-form"];
@@ -123,15 +122,30 @@ function createRow(row = {}) {
   attachAutoGrow(nameInput);
   nameInput.addEventListener("input", () => syncExpenseNotesRows());
 
-  const weeklyTd = document.createElement("td");
-  const weeklyInput = createCellInput("text", formatCurrencyInput(row.weekly_amount ?? ""), "weekly currency-field");
-  weeklyInput.inputMode = "decimal";
-  weeklyTd.appendChild(weeklyInput);
-
   const monthlyTd = document.createElement("td");
-  const monthlyInput = createCellInput("text", formatCurrencyInput(row.monthly_amount ?? ""), "monthly currency-field");
+  const monthlyInput = createCellInput("text", formatCurrencyInput(row.monthly_amount ?? row.amount ?? ""), "monthly currency-field");
   monthlyInput.inputMode = "decimal";
+
+  const frequencyTd = document.createElement("td");
+  const frequencySelect = document.createElement("select");
+  ["weekly", "monthly", "quarterly", "semiannual", "annual"].forEach((frequency) => {
+    const option = document.createElement("option");
+    option.value = frequency;
+    option.textContent = frequency.charAt(0).toUpperCase() + frequency.slice(1);
+    frequencySelect.appendChild(option);
+  });
+  frequencySelect.value = row.frequency || "monthly";
+  frequencyTd.appendChild(frequencySelect);
   monthlyTd.appendChild(monthlyInput);
+
+  const irregularMonthTd = document.createElement("td");
+  const irregularMonthInput = createCellInput("number", row.irregular_month ?? "", "irregular-month");
+  irregularMonthInput.min = "1";
+  irregularMonthInput.max = "12";
+  irregularMonthInput.step = "1";
+  irregularMonthInput.placeholder = "1-12";
+  irregularMonthInput.disabled = frequencySelect.value !== "annual";
+  irregularMonthTd.appendChild(irregularMonthInput);
 
   const actionsTd = document.createElement("td");
   const moveUpBtn = document.createElement("button");
@@ -177,34 +191,13 @@ function createRow(row = {}) {
   });
   actionsTd.append(moveUpBtn, moveDownBtn, deleteBtn);
 
-  const setActivePeriod = (period, shouldClearInactive = true) => {
-    const weeklyActive = period === "weekly";
-    weeklyInput.readOnly = !weeklyActive;
-    monthlyInput.readOnly = weeklyActive;
-    weeklyInput.classList.toggle("is-inactive", !weeklyActive);
-    monthlyInput.classList.toggle("is-inactive", weeklyActive);
-    tr.dataset.activePeriod = weeklyActive ? "weekly" : "monthly";
-    if (shouldClearInactive) {
-      if (weeklyActive) {
-        monthlyInput.value = "";
-      } else {
-        weeklyInput.value = "";
-      }
+  frequencySelect.addEventListener("change", () => {
+    irregularMonthInput.disabled = frequencySelect.value !== "annual";
+    if (frequencySelect.value !== "annual") {
+      irregularMonthInput.value = "";
     }
-  };
-
-  const activePeriod =
-    row.active_period ||
-    ((row.weekly_amount ?? "") !== "" && Number(row.weekly_amount) > 0 ? "weekly" : "monthly");
-  setActivePeriod(activePeriod, false);
-
-  weeklyInput.addEventListener("focus", () => {
-    setActivePeriod("weekly");
     saveState();
-  });
-  monthlyInput.addEventListener("focus", () => {
-    setActivePeriod("monthly");
-    saveState();
+    refreshTableTotals();
   });
   const attachCurrencyFormatting = (input) => {
     input.addEventListener("input", () => {
@@ -218,10 +211,9 @@ function createRow(row = {}) {
       saveState();
     });
   };
-  attachCurrencyFormatting(weeklyInput);
   attachCurrencyFormatting(monthlyInput);
 
-  tr.append(enabledTd, classTd, nameTd, weeklyTd, monthlyTd, actionsTd);
+  tr.append(enabledTd, classTd, nameTd, frequencyTd, monthlyTd, irregularMonthTd, actionsTd);
   tr.addEventListener("input", () => {
     debounceSaveState();
     refreshTableTotals();
@@ -309,9 +301,10 @@ function collectExpenses() {
       enabled: cells[0].querySelector("input").checked,
       expense_class: cells[1].querySelector("textarea").value.trim(),
       name: cells[2].querySelector("textarea").value.trim(),
-      weekly_amount: parseCurrencyInput(cells[3].querySelector("input").value),
+      frequency: cells[3].querySelector("select").value,
+      weekly_amount: "",
       monthly_amount: parseCurrencyInput(cells[4].querySelector("input").value),
-      active_period: row.dataset.activePeriod || "monthly",
+      irregular_month: cells[5].querySelector("input").value,
       notes: row.dataset.note || "",
       id: row.dataset.rowId,
     };
@@ -365,7 +358,8 @@ function normalizeRow(row) {
     name: String(name),
     weekly_amount: parseCurrencyInput(row.weekly_amount ?? row.weeklyAmount ?? ""),
     monthly_amount: parseCurrencyInput(row.monthly_amount ?? row.monthlyAmount ?? ""),
-    active_period: row.active_period === "weekly" ? "weekly" : "monthly",
+    frequency: row.frequency || "monthly",
+    irregular_month: row.irregular_month ?? "",
     notes: String(row.notes ?? ""),
     id: String(row.id ?? ""),
   };
@@ -633,17 +627,23 @@ function refreshTableTotals() {
   const expenses = collectExpenses().filter((expense) => expense.enabled);
   const totals = expenses.reduce(
     (acc, expense) => {
-      const weeklyRaw = Number(expense.weekly_amount || 0);
       const monthlyRaw = Number(expense.monthly_amount || 0);
-      const monthly = monthlyRaw > 0 ? monthlyRaw : weeklyRaw * 52 / 12;
-      const weekly = weeklyRaw > 0 ? weeklyRaw : monthlyRaw > 0 ? monthlyRaw * 12 / 52 : 0;
-      acc.weekly += weekly;
+      const frequency = expense.frequency || "monthly";
+      const monthly =
+        frequency === "weekly"
+          ? monthlyRaw * 52 / 12
+          : frequency === "quarterly"
+            ? monthlyRaw / 3
+            : frequency === "semiannual"
+              ? monthlyRaw / 6
+              : frequency === "annual"
+                ? monthlyRaw / 12
+                : monthlyRaw;
       acc.monthly += monthly;
       return acc;
     },
-    { weekly: 0, monthly: 0 },
+    { monthly: 0 },
   );
-  totalWeeklyEl.textContent = formatCurrency(totals.weekly);
   totalMonthlyEl.textContent = formatCurrency(totals.monthly);
 }
 
@@ -690,7 +690,7 @@ function initialize() {
   contributionMonthsInput.value = String(Math.max(0, Number(state?.contribution_months ?? (contributionMonthsInput.value || 0))));
   currentTargetCoverageMonthsInput.value = String(Math.max(0, Number(state?.current_target_coverage_months ?? (currentTargetCoverageMonthsInput.value || 0))));
   addRowButton.addEventListener("click", () => {
-    createRow({ enabled: true, active_period: "monthly" });
+    createRow({ enabled: true, frequency: "monthly" });
     saveState();
   });
   calculateButton.addEventListener("click", calculateEmergencyFund);
