@@ -3,13 +3,51 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from math import isclose
 import math
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
+@dataclass(frozen=True)
+class RuntimeConfig:
+    debug: bool
+    testing: bool
+    secret_key: str
+
+
+def _parse_env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off", ""}:
+        return False
+    raise ValueError(f"Invalid boolean for {name}: {raw!r}")
+
+
+def load_runtime_config() -> RuntimeConfig:
+    env = os.getenv("FLASK_ENV", "development").strip().lower()
+    debug = _parse_env_bool("FLASK_DEBUG", default=False)
+    testing = _parse_env_bool("FLASK_TESTING", default=False)
+    secret_key = os.getenv("SECRET_KEY", "dev-insecure-key")
+
+    if env == "production":
+        if debug:
+            raise ValueError("FLASK_DEBUG must be disabled in production.")
+        if secret_key == "dev-insecure-key":
+            raise ValueError("SECRET_KEY must be explicitly configured in production.")
+
+    return RuntimeConfig(debug=debug, testing=testing, secret_key=secret_key)
+
+
 app = Flask(__name__)
+runtime_config = load_runtime_config()
+app.config["SECRET_KEY"] = runtime_config.secret_key
+app.config["TESTING"] = runtime_config.testing
 HEADER_BLOCK = """<div class=\"panel-top\">
             <h1>Retirement Calculator</h1>
             <p class=\"subtitle\">Configure assumptions, then compare actual vs goal outcomes.</p>
@@ -1144,4 +1182,4 @@ def debt_tracker_calculate() -> tuple:
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=runtime_config.debug)
