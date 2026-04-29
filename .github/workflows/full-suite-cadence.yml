@@ -1,0 +1,26 @@
+name: Full Suite Cadence
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  full-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov ruff mypy
+      - name: Run full quality gates
+        run: |
+          ruff check .
+          mypy app.py
+          pytest

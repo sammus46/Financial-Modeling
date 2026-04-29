@@ -1,0 +1,40 @@
+name: Changed Files Test Selection
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  targeted-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+      - name: Detect changed files
+        id: changed
+        uses: tj-actions/changed-files@v45
+      - name: Run targeted test subset
+        env:
+          CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
+        run: |
+          TESTS=""
+          if echo "$CHANGED_FILES" | grep -Eq '(^| )app.py( |$)|(^| )tests/'; then
+            TESTS="tests"
+          else
+            if echo "$CHANGED_FILES" | grep -Eq '(^| )static/|(^| )templates/'; then
+              TESTS="tests/test_pipeline_inference_backtest_edges.py tests/test_security_guards.py"
+            fi
+          fi
+          if [ -z "$TESTS" ]; then
+            echo "No code-impacting files changed; running smoke subset"
+            TESTS="tests/test_exception_handling.py"
+          fi
+          echo "Running tests: $TESTS"
+          pytest -q $TESTS
