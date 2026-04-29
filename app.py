@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime
 from math import isclose
+import math
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
@@ -70,6 +71,17 @@ class ValidationError(ValueError):
     """Raised for invalid user input."""
 
 
+def _require_keys(payload: dict, required_keys: list[str], path: str) -> None:
+    for key in required_keys:
+        if key not in payload:
+            raise ValidationError(f"Missing required field '{path}.{key}'.")
+
+
+def _ensure_finite(value: float, path: str) -> None:
+    if not math.isfinite(value):
+        raise ValidationError(f"Field '{path}' must be a finite number.")
+
+
 def _static_version() -> int:
     static_dir = Path(app.root_path) / "static"
     tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js", "dashboard.js", "debt_tracker.js"]
@@ -126,7 +138,9 @@ def _parse_float(payload: dict, key: str, default: float = 0.0) -> float:
         return default
     if isinstance(value, str):
         value = value.replace(",", "").replace("$", "").strip()
-    return float(value)
+    parsed = float(value)
+    _ensure_finite(parsed, key)
+    return parsed
 
 
 def _parse_bool(payload: dict, key: str, default: bool = False) -> bool:
@@ -165,6 +179,25 @@ def _after_tax_value(data: RetirementInputs, traditional_balance: float, roth_ba
 
 
 def parse_inputs(payload: dict) -> RetirementInputs:
+    _require_keys(
+        payload,
+        [
+            "current_age",
+            "retirement_age",
+            "contribution_mode",
+            "annual_income",
+            "salary_growth_rate",
+            "inflation_rate",
+            "traditional_return_rate",
+            "roth_return_rate",
+            "brokerage_return_rate",
+            "retirement_spend_rate",
+            "desired_swr",
+            "traditional_retirement_tax_rate",
+            "brokerage_retirement_tax_rate",
+        ],
+        "payload",
+    )
     try:
         current_age = int(payload["current_age"])
         retirement_age = int(payload["retirement_age"])
@@ -204,7 +237,7 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             glidepath_bond_return_rate=_parse_float(payload, "glidepath_bond_return_rate", default=4.0),
         )
     except (KeyError, TypeError, ValueError) as exc:
-        raise ValidationError("Please enter valid numeric inputs for all required fields.") from exc
+        raise ValidationError(f"Invalid value in retirement payload: {exc}") from exc
 
     if not 0 <= current_age <= 120:
         raise ValidationError("Current age must be between 0 and 120.")
@@ -290,21 +323,23 @@ def parse_inputs(payload: dict) -> RetirementInputs:
 
 
 def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], float, float, int, float, float]:
+    _require_keys(payload, ["expenses"], "payload")
     expenses_payload = payload.get("expenses")
     if not isinstance(expenses_payload, list):
         raise ValidationError("Expenses must be provided as a list.")
 
     parsed_expenses: list[EmergencyExpense] = []
-    for row in expenses_payload:
+    for idx, row in enumerate(expenses_payload):
         if not isinstance(row, dict):
-            raise ValidationError("Each expense row must be an object.")
+            raise ValidationError(f"Each expense row must be an object at payload.expenses[{idx}].")
+        _require_keys(row, ["name", "frequency"], f"payload.expenses[{idx}]")
 
         enabled = bool(row.get("enabled", True))
         weekly_amount = _parse_float(row, "weekly_amount", default=0.0)
         monthly_amount = _parse_float(row, "monthly_amount", default=0.0)
 
         if weekly_amount < 0 or monthly_amount < 0:
-            raise ValidationError("Weekly and monthly amounts cannot be negative.")
+            raise ValidationError(f"Weekly and monthly amounts cannot be negative at payload.expenses[{idx}].")
 
         frequency = str(row.get("frequency", "monthly")).strip().lower()
         if frequency not in {"weekly", "monthly", "quarterly", "semiannual", "annual"}:
@@ -314,7 +349,7 @@ def parse_emergency_fund_inputs(payload: dict) -> tuple[list[EmergencyExpense], 
         if irregular_month_value not in (None, ""):
             irregular_month = int(_parse_float(row, "irregular_month", default=0.0))
             if not 1 <= irregular_month <= 12:
-                raise ValidationError("Irregular month must be between 1 and 12.")
+                raise ValidationError(f"Irregular month must be between 1 and 12 at payload.expenses[{idx}].")
 
         parsed_expenses.append(
             EmergencyExpense(
@@ -801,6 +836,7 @@ class DebtItem:
 
 
 def parse_debt_inputs(payload: dict) -> tuple[list[DebtItem], float, str]:
+    _require_keys(payload, ["debts", "monthly_budget", "strategy"], "payload")
     debts_payload = payload.get("debts")
     if not isinstance(debts_payload, list) or not debts_payload:
         raise ValidationError("Please include at least one debt.")
@@ -812,19 +848,28 @@ def parse_debt_inputs(payload: dict) -> tuple[list[DebtItem], float, str]:
         raise ValidationError("Strategy must be avalanche or snowball.")
 
     debts: list[DebtItem] = []
-    for row in debts_payload:
+    deferred_dates: list[datetime] = []
+    for idx, row in enumerate(debts_payload):
+        if not isinstance(row, dict):
+            raise ValidationError(f"Each debt row must be an object at payload.debts[{idx}].")
+        _require_keys(row, ["name", "balance", "annual_interest_rate", "minimum_payment"], f"payload.debts[{idx}]")
         balance = _parse_float(row, "balance")
         apr = _parse_float(row, "annual_interest_rate")
         minimum_payment = _parse_float(row, "minimum_payment")
         if balance < 0 or apr < 0 or minimum_payment < 0:
-            raise ValidationError("Debt values cannot be negative.")
+            raise ValidationError(f"Debt values cannot be negative at payload.debts[{idx}].")
         deferred_interest_enabled = bool(row.get("deferred_interest_enabled", False))
         deferred_interest_date = str(row.get("deferred_interest_date", "")).strip()
         deferred_interest_rate = _parse_float(row, "deferred_interest_rate", default=apr)
         if deferred_interest_enabled and not deferred_interest_date:
-            raise ValidationError("Deferred interest date is required when deferred interest is enabled.")
+            raise ValidationError(f"Deferred interest date is required at payload.debts[{idx}].deferred_interest_date.")
         if deferred_interest_enabled:
-            datetime.strptime(deferred_interest_date, "%Y-%m-%d")
+            parsed_date = datetime.strptime(deferred_interest_date, "%Y-%m-%d")
+            if deferred_dates and parsed_date < deferred_dates[-1]:
+                raise ValidationError(
+                    f"Deferred interest dates must be monotonic (non-decreasing): payload.debts[{idx}].deferred_interest_date."
+                )
+            deferred_dates.append(parsed_date)
         debts.append(
             DebtItem(
                 name=str(row.get("name", "Debt")).strip() or "Debt",
