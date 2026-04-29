@@ -46,6 +46,7 @@ class RetirementInputs:
     monte_carlo_trials: int
     monte_carlo_return_stddev: float
     monte_carlo_inflation_stddev: float
+    monte_carlo_seed: int
     enable_contribution_escalation: bool
     contribution_escalation_rate: float
     enable_glidepath: bool
@@ -228,6 +229,7 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             monte_carlo_trials=int(_parse_float(payload, "monte_carlo_trials", default=1000.0)),
             monte_carlo_return_stddev=_parse_float(payload, "monte_carlo_return_stddev", default=12.0),
             monte_carlo_inflation_stddev=_parse_float(payload, "monte_carlo_inflation_stddev", default=1.0),
+            monte_carlo_seed=int(_parse_float(payload, "monte_carlo_seed", default=-1.0)),
             enable_contribution_escalation=_parse_bool(payload, "enable_contribution_escalation"),
             contribution_escalation_rate=_parse_float(payload, "contribution_escalation_rate", default=0.0),
             enable_glidepath=_parse_bool(payload, "enable_glidepath"),
@@ -305,6 +307,9 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             raise ValidationError("Monte Carlo return std dev must be between 0 and 100.")
         if not 0 <= data.monte_carlo_inflation_stddev <= 100:
             raise ValidationError("Monte Carlo inflation std dev must be between 0 and 100.")
+
+        if data.monte_carlo_seed < -1:
+            raise ValidationError("Monte Carlo seed must be -1 (default) or a non-negative integer.")
 
     if data.enable_contribution_escalation and not 0 <= data.contribution_escalation_rate <= 100:
         raise ValidationError("Contribution escalation rate must be between 0 and 100.")
@@ -726,6 +731,15 @@ def calculate_projection(data: RetirementInputs) -> dict:
     return response
 
 
+DEFAULT_MONTE_CARLO_SEED = 20260429
+
+
+def _resolve_monte_carlo_seed(data: RetirementInputs) -> int:
+    if data.monte_carlo_seed >= 0:
+        return data.monte_carlo_seed
+    return DEFAULT_MONTE_CARLO_SEED
+
+
 def run_monte_carlo(data: RetirementInputs, target_nest_egg: float) -> dict:
     trials = data.monte_carlo_trials
     return_stddev = _to_decimal(data.monte_carlo_return_stddev)
@@ -734,10 +748,7 @@ def run_monte_carlo(data: RetirementInputs, target_nest_egg: float) -> dict:
     paths: list[list[float]] = []
     ending_values: list[float] = []
     successful_trials = 0
-    seed = (
-        int(data.current_age * 31 + data.retirement_age * 17 + data.annual_income)
-        + int(data.traditional_assets + data.roth_assets + data.brokerage_assets)
-    )
+    seed = _resolve_monte_carlo_seed(data)
     rng = random.Random(seed)
 
     for _ in range(trials):
