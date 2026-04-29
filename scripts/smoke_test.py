@@ -125,6 +125,7 @@ def run() -> None:
                     "enabled": True,
                     "expense_class": "Weekly Necessities",
                     "name": "Groceries",
+                    "frequency": "weekly",
                     "weekly_amount": "200",
                     "monthly_amount": "900",
                     "notes": "",
