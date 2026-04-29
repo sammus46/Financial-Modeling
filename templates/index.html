@@ -8,41 +8,85 @@
   </head>
   <body class="dashboard-page">
     <main class="dashboard-layout">
-      <section class="dashboard-hero panel">
-        <div class="dashboard-hero-top">
-          <button id="dashboard-theme-toggle" type="button" class="dashboard-theme-toggle" aria-pressed="false">Dark mode</button>
+      <header class="dashboard-toolbar dashboard-card panel">
+        <div>
+          <p class="dashboard-kicker">Front Dashboard</p>
+          <h1 class="dashboard-title">Financial Modeling App Suite</h1>
         </div>
-        <h1>Financial Modeling App Suite</h1>
+        <div class="dashboard-toolbar-actions">
+          <button id="dashboard-theme-toggle" type="button" class="dashboard-theme-toggle" aria-pressed="false">Dark mode</button>
+          <a class="app-link app-launch-btn" href="{{ url_for('retirement_app') }}">
+            <span>Launch Primary Tool</span>
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </header>
+
+      <section class="dashboard-section dashboard-hero dashboard-card panel" aria-labelledby="dashboard-overview-heading">
+        <h2 id="dashboard-overview-heading">Overview</h2>
         <p class="subtitle">Choose a tool to launch. Each app has its own calculators, charting, and performance insights.</p>
       </section>
 
-      <section class="app-card-grid">
-        <article class="app-card panel">
-          <h2>Retirement Planner</h2>
-          <p>Model portfolio growth, retirement targets, withdrawal rates, and goal progress over time.</p>
-          <a class="app-link app-launch-btn" href="{{ url_for('retirement_app') }}">
-            <span>Open Retirement Planner</span>
-            <span aria-hidden="true">→</span>
-          </a>
-        </article>
+      <section class="dashboard-section" aria-labelledby="dashboard-kpi-heading">
+        <div class="dashboard-section-header">
+          <h2 id="dashboard-kpi-heading">At-a-glance metrics</h2>
+        </div>
+        <div class="dashboard-kpi-grid">
+          <article class="dashboard-kpi-card dashboard-card panel dashboard-kpi-hero">
+            <p class="dashboard-kpi-label">Available Tools</p>
+            <p class="dashboard-kpi-value">3</p>
+            <p class="dashboard-kpi-delta dashboard-kpi-delta-neutral">Retirement · Emergency Fund · Debt Tracker</p>
+          </article>
+          <article class="dashboard-kpi-card dashboard-card panel">
+            <p class="dashboard-kpi-label">Planning Coverage</p>
+            <p class="dashboard-kpi-value">100%</p>
+            <p class="dashboard-kpi-delta dashboard-kpi-delta-positive">Covers growth, liquidity, and liabilities</p>
+          </article>
+          <article class="dashboard-kpi-card dashboard-card panel">
+            <p class="dashboard-kpi-label">Workflow Steps</p>
+            <p class="dashboard-kpi-value">4</p>
+            <p class="dashboard-kpi-delta dashboard-kpi-delta-neutral">Open app, input data, run model, review charts</p>
+          </article>
+          <article class="dashboard-kpi-card dashboard-card panel">
+            <p class="dashboard-kpi-label">Time to First Model</p>
+            <p class="dashboard-kpi-value">~2 min</p>
+            <p class="dashboard-kpi-delta dashboard-kpi-delta-positive">Optimized for quick scenario setup</p>
+          </article>
+        </div>
+      </section>
 
-        <article class="app-card panel">
-          <h2>Emergency Fund Calculator</h2>
-          <p>Build your monthly essentials table, project 3/6/9/12-month targets, and track emergency fund health.</p>
-          <a class="app-link app-launch-btn" href="{{ url_for('emergency_fund_app') }}">
-            <span>Open Emergency Fund Calculator</span>
-            <span aria-hidden="true">→</span>
-          </a>
-        </article>
+      <section class="dashboard-section" aria-labelledby="dashboard-tools-heading">
+        <div class="dashboard-section-header">
+          <h2 id="dashboard-tools-heading">Tools</h2>
+        </div>
+        <section class="app-card-grid">
+          <article class="app-card dashboard-card panel">
+            <h2>Retirement Planner</h2>
+            <p>Model portfolio growth, retirement targets, withdrawal rates, and goal progress over time.</p>
+            <a class="app-link app-launch-btn" href="{{ url_for('retirement_app') }}">
+              <span>Open Retirement Planner</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
 
-        <article class="app-card panel">
-          <h2>Debt Tracker & Paydown Optimizer</h2>
-          <p>Rank debts using avalanche or snowball, account for deferred interest dates, and chart payment timelines.</p>
-          <a class="app-link app-launch-btn" href="{{ url_for('debt_tracker_app') }}">
-            <span>Open Debt Tracker</span>
-            <span aria-hidden="true">→</span>
-          </a>
-        </article>
+          <article class="app-card dashboard-card panel">
+            <h2>Emergency Fund Calculator</h2>
+            <p>Build your monthly essentials table, project 3/6/9/12-month targets, and track emergency fund health.</p>
+            <a class="app-link app-launch-btn" href="{{ url_for('emergency_fund_app') }}">
+              <span>Open Emergency Fund Calculator</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+
+          <article class="app-card dashboard-card panel">
+            <h2>Debt Tracker & Paydown Optimizer</h2>
+            <p>Rank debts using avalanche or snowball, account for deferred interest dates, and chart payment timelines.</p>
+            <a class="app-link app-launch-btn" href="{{ url_for('debt_tracker_app') }}">
+              <span>Open Debt Tracker</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+        </section>
       </section>
     </main>
     <script src="{{ url_for('static', filename='dashboard.js', v=static_version) }}"></script>
