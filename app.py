@@ -72,10 +72,34 @@ class ValidationError(ValueError):
     """Raised for invalid user input."""
 
 
+def _error_context(payload: dict | None) -> dict[str, str]:
+    payload = payload or {}
+    symbol = str(payload.get("symbol") or payload.get("ticker") or "n/a")
+    start_date = str(payload.get("start_date") or payload.get("from_date") or "n/a")
+    end_date = str(payload.get("end_date") or payload.get("to_date") or "n/a")
+    model_id = str(payload.get("model_id") or payload.get("model") or "n/a")
+    input_source = str(payload.get("input_source") or "api")
+    return {
+        "symbol": symbol,
+        "date_range": f"{start_date}->{end_date}",
+        "model_id": model_id,
+        "input_source": input_source,
+    }
+
+
+def _format_error(message: str, payload: dict | None) -> str:
+    ctx = _error_context(payload)
+    return (
+        f"{message} "
+        f"[context: symbol={ctx['symbol']}, date_range={ctx['date_range']}, "
+        f"model_id={ctx['model_id']}, input_source={ctx['input_source']}]"
+    )
+
+
 def _require_keys(payload: dict, required_keys: list[str], path: str) -> None:
     for key in required_keys:
         if key not in payload:
-            raise ValidationError(f"Missing required field '{path}.{key}'.")
+            raise ValidationError(_format_error(f"Missing required field '{path}.{key}'.", payload))
 
 
 def _ensure_finite(value: float, path: str) -> None:
@@ -238,8 +262,12 @@ def parse_inputs(payload: dict) -> RetirementInputs:
             glidepath_equity_return_rate=_parse_float(payload, "glidepath_equity_return_rate", default=9.0),
             glidepath_bond_return_rate=_parse_float(payload, "glidepath_bond_return_rate", default=4.0),
         )
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValidationError(f"Invalid value in retirement payload: {exc}") from exc
+    except KeyError as exc:
+        raise ValidationError(_format_error(f"Missing required retirement field: {exc}", payload)) from exc
+    except TypeError as exc:
+        raise ValidationError(_format_error(f"Invalid retirement payload type: {exc}", payload)) from exc
+    except ValueError as exc:
+        raise ValidationError(_format_error(f"Invalid value in retirement payload: {exc}", payload)) from exc
 
     if not 0 <= current_age <= 120:
         raise ValidationError("Current age must be between 0 and 120.")
@@ -1026,11 +1054,13 @@ def debt_tracker_app() -> str:
 @app.route("/calculate", methods=["POST"])
 def calculate_retirement() -> tuple:
     payload = request.get_json(silent=True) or {}
+    context = _error_context(payload)
     app.logger.info(
-        "Calculate request received.",
+        "[retirement] stage=start request received",
         extra={
             "payload_keys": sorted(payload.keys()),
             "contribution_mode": payload.get("contribution_mode"),
+            **context,
         },
     )
 
@@ -1038,14 +1068,18 @@ def calculate_retirement() -> tuple:
         data = parse_inputs(payload)
         result = calculate_projection(data)
     except ValidationError as exc:
-        app.logger.warning("Calculate validation error: %s", str(exc))
+        app.logger.warning("[retirement] stage=validation_failed error=%s", str(exc), extra=context)
         return jsonify({"error": str(exc)}), 400
 
     app.logger.info(
-        "Calculate response prepared.",
+        "[retirement] stage=end response prepared",
         extra={
+            "input_record_count": 1,
+            "output_record_count": len(result.get("ages", [])),
             "ages_count": len(result.get("ages", [])),
             "post_tax_count": len(result.get("post_tax_balances", [])),
+            "key_metric_future_value_after_tax": result.get("stats", {}).get("future_value_after_tax_at_retirement", {}).get("actual"),
+            **context,
         },
     )
     return jsonify(result), 200
@@ -1054,6 +1088,8 @@ def calculate_retirement() -> tuple:
 @app.route("/api/emergency-fund/calculate", methods=["POST"])
 def emergency_fund_calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
+    context = _error_context(payload)
+    app.logger.info("[emergency_fund] stage=start request received", extra=context)
     try:
         (
             expenses,
@@ -1070,19 +1106,40 @@ def emergency_fund_calculate() -> tuple:
             current_target_coverage_months,
         )
     except ValidationError as exc:
+        app.logger.warning("[emergency_fund] stage=validation_failed error=%s", str(exc), extra=context)
         return jsonify({"error": str(exc)}), 400
-
+    app.logger.info(
+        "[emergency_fund] stage=end response prepared",
+        extra={
+            "input_record_count": len(payload.get("expenses", [])) if isinstance(payload.get("expenses"), list) else 0,
+            "output_record_count": len(result.get("expense_breakdown", [])),
+            "key_metric_total_target": result.get("target_amount"),
+            **context,
+        },
+    )
     return jsonify(result), 200
 
 
 @app.route("/api/debt-tracker/calculate", methods=["POST"])
 def debt_tracker_calculate() -> tuple:
     payload = request.get_json(silent=True) or {}
+    context = _error_context(payload)
+    app.logger.info("[debt_tracker] stage=start request received", extra=context)
     try:
         debts, monthly_budget, strategy = parse_debt_inputs(payload)
         result = calculate_debt_paydown(debts, monthly_budget, strategy)
     except (ValidationError, ValueError) as exc:
+        app.logger.warning("[debt_tracker] stage=validation_failed error=%s", str(exc), extra=context)
         return jsonify({"error": str(exc)}), 400
+    app.logger.info(
+        "[debt_tracker] stage=end response prepared",
+        extra={
+            "input_record_count": len(payload.get("debts", [])) if isinstance(payload.get("debts"), list) else 0,
+            "output_record_count": len(result.get("ranked_order", [])),
+            "key_metric_total_interest_paid": result.get("total_interest_paid"),
+            **context,
+        },
+    )
     return jsonify(result), 200
 
 
