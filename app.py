@@ -38,8 +38,14 @@ def load_runtime_config() -> RuntimeConfig:
     if env == "production":
         if debug:
             raise ValueError("FLASK_DEBUG must be disabled in production.")
-        if secret_key == "dev-insecure-key":
+
+        normalized_secret_key = secret_key.strip()
+        if not normalized_secret_key:
+            raise ValueError("SECRET_KEY must not be blank in production.")
+        if normalized_secret_key == "dev-insecure-key":
             raise ValueError("SECRET_KEY must be explicitly configured in production.")
+
+        secret_key = normalized_secret_key
 
     return RuntimeConfig(debug=debug, testing=testing, secret_key=secret_key)
 
