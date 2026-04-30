@@ -147,7 +147,7 @@ def _ensure_finite(value: float, path: str) -> None:
 
 def _static_version() -> int:
     static_dir = Path(app.root_path) / "static"
-    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js", "dashboard.js", "debt_tracker.js"]
+    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js", "dashboard.js", "debt_tracker.js", "net_worth_tracker.js"]
     mtimes = []
     for filename in tracked:
         file_path = static_dir / filename
@@ -1088,6 +1088,10 @@ def debt_tracker_app() -> str:
     return render_template("debt_tracker.html")
 
 
+@app.route("/apps/net-worth-tracker", methods=["GET"] )
+def net_worth_tracker_app() -> str:
+    return render_template("net_worth_tracker.html")
+
 @app.route("/api/retirement/calculate", methods=["POST"])
 @app.route("/calculate", methods=["POST"])
 def calculate_retirement() -> tuple:
@@ -1179,6 +1183,64 @@ def debt_tracker_calculate() -> tuple:
         },
     )
     return jsonify(result), 200
+
+
+def _simulate_net_worth(payload: dict) -> dict:
+    assets = payload.get("assets", [])
+    liabilities = payload.get("liabilities", [])
+    monthly_contribution = max(float(payload.get("monthly_contribution", 0) or 0), 0.0)
+    fi_target = max(float(payload.get("fi_target", 1000000) or 1000000), 1.0)
+    trials = min(max(int(payload.get("simulation_trials", 1000) or 1000), 200), 5000)
+    months = 120
+    current_assets = sum(float(a.get("current_value", 0) or 0) for a in assets)
+    current_liabilities = sum(float(d.get("balance", 0) or 0) for d in liabilities)
+    current_net_worth = current_assets - current_liabilities
+    runs = []
+    for _ in range(trials):
+        asset_vals = [float(a.get("current_value", 0) or 0) for a in assets]
+        debt_vals = [float(d.get("balance", 0) or 0) for d in liabilities]
+        series = []
+        for m in range(1, months + 1):
+            for i, a in enumerate(assets):
+                base = float(a.get("annual_growth_rate", 0) or 0) / 100 / 12
+                noise = random.gauss(0, abs(base) * 0.35)
+                asset_vals[i] *= (1 + base + noise)
+                if a.get("asset_class") in {"cash", "investments"}:
+                    asset_vals[i] += monthly_contribution / max(len(assets), 1)
+            for j, d in enumerate(liabilities):
+                apr = float(d.get("annual_interest_rate", 0) or 0) / 100 / 12
+                debt_vals[j] = max(debt_vals[j] * (1 + apr) - float(d.get("minimum_payment", 0) or 0), 0)
+            series.append(sum(asset_vals) - sum(debt_vals))
+        runs.append(series)
+    timeline = []
+    milestones = {"first_100k_date": None, "debt_free_date": None, "fi_date": None}
+    now = datetime.utcnow()
+    for m in range(months):
+        vals = sorted(run[m] for run in runs)
+        p10 = vals[int(0.1 * (len(vals)-1))]
+        p50 = vals[int(0.5 * (len(vals)-1))]
+        p90 = vals[int(0.9 * (len(vals)-1))]
+        timeline.append({"month": m+1, "net_worth_p10": p10, "net_worth_median": p50, "net_worth_p90": p90})
+        date_label = f"{(now.month + m -1)%12 +1:02d}/{now.year + (now.month + m -1)//12}"
+        if milestones["first_100k_date"] is None and p50 >= 100000:
+            milestones["first_100k_date"] = date_label
+        if milestones["fi_date"] is None and p50 >= fi_target:
+            milestones["fi_date"] = date_label
+        if milestones["debt_free_date"] is None and p10 >= 0:
+            milestones["debt_free_date"] = date_label
+    def horizon(years: int):
+        idx = years*12 - 1
+        return {"low": timeline[idx]["net_worth_p10"], "median": timeline[idx]["net_worth_median"], "high": timeline[idx]["net_worth_p90"]}
+    return {"current_net_worth": current_net_worth, "timeline": timeline, "horizons": {"y1": horizon(1), "y3": horizon(3), "y5": horizon(5), "y10": horizon(10)}, "milestones": milestones}
+
+
+@app.route("/api/net-worth/calculate", methods=["POST"])
+def net_worth_calculate() -> tuple:
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_simulate_net_worth(payload)), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 if __name__ == "__main__":
