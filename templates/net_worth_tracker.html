@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Net Worth Tracker + Balance Sheet Forecast</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <nav class="tool-nav" aria-label="Tool navigation">
+      <a class="tool-nav-link" href="{{ url_for('index') }}">← Back to Dashboard</a>
+      <a class="tool-nav-link" href="{{ url_for('retirement_app') }}">Retirement Planner</a>
+      <a class="tool-nav-link" href="{{ url_for('emergency_fund_app') }}">Emergency Fund</a>
+      <a class="tool-nav-link" href="{{ url_for('debt_tracker_app') }}">Debt Tracker</a>
+      <a class="tool-nav-link tool-nav-link-active" href="{{ url_for('net_worth_tracker_app') }}" aria-current="page">Net Worth Tracker</a>
+    </nav>
+    <main class="app-shell emergency-shell">
+      <section class="panel emergency-panel">
+        <div class="panel-top-card">
+          <h1>Net Worth Tracker + Balance Sheet Forecast</h1>
+          <p class="subtitle">Track assets and liabilities, project 1/3/5/10-year net worth, and view milestone dates.</p>
+          <div class="actions actions-top">
+            <button id="calculate-networth-btn" type="button">Calculate</button>
+            <button id="networth-theme-toggle" type="button" class="secondary-btn">Dark mode</button>
+          </div>
+        </div>
+        <p id="networth-error" class="error" role="alert" aria-live="polite"></p>
+        <section class="panel emergency-controls">
+          <label>Monthly Contribution ($)<input id="monthly_contribution" type="number" value="1500" min="0" /></label>
+          <label>FI Target ($)<input id="fi_target" type="number" value="1000000" min="1000" /></label>
+          <label>Simulation Trials<input id="simulation_trials" type="number" value="1000" min="200" max="5000" /></label>
+        </section>
+        <h2>Assets</h2>
+        <div class="table-wrapper"><table id="assets-table"><thead><tr><th>Name</th><th>Class</th><th>Current Value ($)</th><th>Annual Growth (%)</th></tr></thead><tbody></tbody></table></div>
+        <h2>Liabilities</h2>
+        <div class="table-wrapper"><table id="liabilities-table"><thead><tr><th>Name</th><th>Balance ($)</th><th>APR (%)</th><th>Min Payment ($)</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="results-panel">
+        <section class="summary-grid debt-summary-grid">
+          <article class="summary-card"><p class="summary-label">Current Net Worth</p><p id="current-net-worth" class="summary-value">—</p></article>
+          <article class="summary-card"><p class="summary-label">10-Year Median Net Worth</p><p id="ten-year-net-worth" class="summary-value">—</p></article>
+          <article class="summary-card"><p class="summary-label">Debt-free Date</p><p id="debt-free-date" class="summary-value">—</p></article>
+        </section>
+        <section class="panel"><h2>Forecast with Confidence Bands</h2><canvas id="networthChart"></canvas></section>
+        <section class="panel"><h2>Milestones</h2><ul id="milestones-list"></ul></section>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='net_worth_tracker.js', v=static_version) }}"></script>
+  </body>
+</html>
