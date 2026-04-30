@@ -52,5 +52,13 @@ class SecurityGuardTests(unittest.TestCase):
                 app_module.load_runtime_config()
 
 
+    def test_runtime_config_rejects_blank_production_secret_key(self):
+        for secret in ("", "   ", "\n\t"):
+            env = {"FLASK_ENV": "production", "SECRET_KEY": secret}
+            with patch.dict(os.environ, env, clear=True):
+                with self.assertRaises(ValueError):
+                    app_module.load_runtime_config()
+
+
 if __name__ == "__main__":
     unittest.main()
