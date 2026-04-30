@@ -6,6 +6,8 @@ const currentNetWorthEl = document.getElementById('current-net-worth');
 const tenYearNetWorthEl = document.getElementById('ten-year-net-worth');
 const debtFreeDateEl = document.getElementById('debt-free-date');
 const milestonesList = document.getElementById('milestones-list');
+const themeToggleButton = document.getElementById('networth-theme-toggle');
+const THEME_KEY = 'financial-modeling-theme';
 let chart;
 
 const currency = (v)=> new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v||0);
@@ -20,6 +22,40 @@ function addLiabilityRow(name,balance,apr,minPayment){
   tr.innerHTML=`<td><input value="${name}"/></td><td><input type="number" value="${balance}" min="0"/></td><td><input type="number" value="${apr}" step="0.01"/></td><td><input type="number" value="${minPayment}" min="0"/></td>`;
   liabilitiesBody.appendChild(tr);
 }
+
+function getChartTheme() {
+  const isDark = document.body.classList.contains('dark-mode');
+  return {
+    axisColor: isDark ? '#e5e7eb' : '#111827',
+    gridColor: isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(148, 163, 184, 0.3)',
+  };
+}
+
+function setTheme(mode) {
+  const isDark = mode === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  if (themeToggleButton) {
+    themeToggleButton.textContent = isDark ? 'Light mode' : 'Dark mode';
+    themeToggleButton.setAttribute('aria-pressed', String(isDark));
+  }
+  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+
+  if (chart) {
+    const theme = getChartTheme();
+    chart.options.scales.x.ticks.color = theme.axisColor;
+    chart.options.scales.y.ticks.color = theme.axisColor;
+    chart.options.scales.x.grid.color = theme.gridColor;
+    chart.options.scales.y.grid.color = theme.gridColor;
+    chart.update();
+  }
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  const preferredDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(savedTheme || (preferredDark ? 'dark' : 'light'));
+}
+
 function collect(){
   const assets=[...assetsBody.querySelectorAll('tr')].map(r=>({
     name:r.cells[0].querySelector('input').value,
@@ -50,9 +86,21 @@ function render(result){
   const median=result.timeline.map(p=>p.net_worth_median);
   const low=result.timeline.map(p=>p.net_worth_p10);
   const high=result.timeline.map(p=>p.net_worth_p90);
+  const theme = getChartTheme();
   if(chart) chart.destroy();
-  chart=new Chart(document.getElementById('networthChart'),{type:'line',data:{labels,datasets:[{label:'P10',data:low,borderColor:'#f59e0b'},{label:'Median',data:median,borderColor:'#2563eb'},{label:'P90',data:high,borderColor:'#16a34a'}]}});
+  chart=new Chart(document.getElementById('networthChart'),{
+    type:'line',
+    data:{labels,datasets:[{label:'P10',data:low,borderColor:'#f59e0b'},{label:'Median',data:median,borderColor:'#2563eb'},{label:'P90',data:high,borderColor:'#16a34a'}]},
+    options:{
+      scales:{
+        x:{ticks:{color:theme.axisColor},grid:{color:theme.gridColor}},
+        y:{ticks:{color:theme.axisColor},grid:{color:theme.gridColor}}
+      },
+      plugins:{legend:{labels:{color:theme.axisColor}}}
+    }
+  });
 }
+
 async function run(){
   errorEl.textContent='';
   const resp=await fetch('/api/net-worth/calculate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(collect())});
@@ -66,3 +114,11 @@ addAssetRow('401k','investments',85000,6.5);
 addAssetRow('Home','real_estate',350000,3.0);
 addLiabilityRow('Mortgage',250000,6.2,1800);
 addLiabilityRow('Car Loan',18000,4.9,420);
+
+initializeTheme();
+if (themeToggleButton) {
+  themeToggleButton.addEventListener('click', () => {
+    const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+    setTheme(nextTheme);
+  });
+}
