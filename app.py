@@ -1196,10 +1196,12 @@ def _simulate_net_worth(payload: dict) -> dict:
     current_liabilities = sum(float(d.get("balance", 0) or 0) for d in liabilities)
     current_net_worth = current_assets - current_liabilities
     runs = []
+    debt_balance_runs = []
     for _ in range(trials):
         asset_vals = [float(a.get("current_value", 0) or 0) for a in assets]
         debt_vals = [float(d.get("balance", 0) or 0) for d in liabilities]
         series = []
+        debt_series = []
         for m in range(1, months + 1):
             for i, a in enumerate(assets):
                 base = float(a.get("annual_growth_rate", 0) or 0) / 100 / 12
@@ -1210,8 +1212,11 @@ def _simulate_net_worth(payload: dict) -> dict:
             for j, d in enumerate(liabilities):
                 apr = float(d.get("annual_interest_rate", 0) or 0) / 100 / 12
                 debt_vals[j] = max(debt_vals[j] * (1 + apr) - float(d.get("minimum_payment", 0) or 0), 0)
-            series.append(sum(asset_vals) - sum(debt_vals))
+            debt_balance = sum(debt_vals)
+            debt_series.append(debt_balance)
+            series.append(sum(asset_vals) - debt_balance)
         runs.append(series)
+        debt_balance_runs.append(debt_series)
     timeline = []
     milestones = {"first_100k_date": None, "debt_free_date": None, "fi_date": None}
     now = datetime.utcnow()
@@ -1226,7 +1231,9 @@ def _simulate_net_worth(payload: dict) -> dict:
             milestones["first_100k_date"] = date_label
         if milestones["fi_date"] is None and p50 >= fi_target:
             milestones["fi_date"] = date_label
-        if milestones["debt_free_date"] is None and p10 >= 0:
+        debt_vals = sorted(run[m] for run in debt_balance_runs)
+        debt_p90 = debt_vals[int(0.9 * (len(debt_vals)-1))]
+        if milestones["debt_free_date"] is None and debt_p90 <= 0:
             milestones["debt_free_date"] = date_label
     def horizon(years: int):
         idx = years*12 - 1
