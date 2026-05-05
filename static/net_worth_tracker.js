@@ -101,11 +101,18 @@ function wireRowInputs(tr) {
   });
 }
 
+function getComputedColor(name) {
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+
 function getChartTheme() {
-  const isDark = document.body.classList.contains('dark-mode');
   return {
-    axisColor: isDark ? '#e5e7eb' : '#111827',
-    gridColor: isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(148, 163, 184, 0.3)',
+    axisColor: getComputedColor('--axis-color') || '#1e293b',
+    gridColor: getComputedColor('--grid-color') || 'rgba(148, 163, 184, 0.22)',
+    goalLine: getComputedColor('--chart-networth-goal-line') || getComputedColor('--chart-goal-line') || '#ef4444',
+    medianLine: getComputedColor('--chart-networth-median-line') || getComputedColor('--chart-balance-line') || '#2563eb',
+    p10Line: getComputedColor('--chart-networth-p10-line') || getComputedColor('--chart-p10-line') || '#f59e0b',
+    p90Line: getComputedColor('--chart-networth-p90-line') || getComputedColor('--chart-p90-line') || '#16a34a',
   };
 }
 
@@ -191,10 +198,15 @@ function setTheme(mode) {
 
   if (chart) {
     const theme = getChartTheme();
+    chart.data.datasets[0].borderColor = theme.p10Line;
+    chart.data.datasets[1].borderColor = theme.medianLine;
+    chart.data.datasets[2].borderColor = theme.p90Line;
+    chart.data.datasets[3].borderColor = theme.goalLine;
     chart.options.scales.x.ticks.color = theme.axisColor;
     chart.options.scales.y.ticks.color = theme.axisColor;
     chart.options.scales.x.grid.color = theme.gridColor;
     chart.options.scales.y.grid.color = theme.gridColor;
+    chart.options.plugins.legend.labels.color = theme.axisColor;
     chart.update();
   }
 }
@@ -276,11 +288,11 @@ function render(result) {
     data: {
       labels,
       datasets: [
-        { label: 'P10', data: low, borderColor: '#f59e0b' },
-        { label: 'Median', data: median, borderColor: '#2563eb' },
-        { label: 'P90', data: high, borderColor: '#16a34a' },
+        { label: 'P10', data: low, borderColor: theme.p10Line },
+        { label: 'Median', data: median, borderColor: theme.medianLine },
+        { label: 'P90', data: high, borderColor: theme.p90Line },
         // Canonical goal-line rendering path: keep FI goal as a standard dataset.
-        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
+        { label: 'FI Goal', data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
       ],
     },
     options: {
