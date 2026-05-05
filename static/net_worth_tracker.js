@@ -70,9 +70,43 @@ function createRowActions(tr, containerBody) {
   return actionsTd;
 }
 
+function createInputCell(value, options = {}) {
+  const td = document.createElement('td');
+  const input = document.createElement('input');
+  input.value = value;
+
+  if (options.type) input.type = options.type;
+  if (options.inputMode) input.inputMode = options.inputMode;
+  if (options.format) input.dataset.format = options.format;
+
+  td.appendChild(input);
+  return td;
+}
+
+function createSelectCell(options, selectedValue) {
+  const td = document.createElement('td');
+  const select = document.createElement('select');
+
+  options.forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+  select.value = options.includes(selectedValue) ? selectedValue : options[0];
+
+  td.appendChild(select);
+  return td;
+}
+
 function addAssetRow(name, cls, value, growth) {
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input value="${name}"/></td><td><select><option ${cls === 'cash' ? 'selected' : ''}>cash</option><option ${cls === 'investments' ? 'selected' : ''}>investments</option><option ${cls === 'real_estate' ? 'selected' : ''}>real_estate</option><option ${cls === 'vehicle' ? 'selected' : ''}>vehicle</option></select></td><td><input type="text" value="${currency(value)}" inputmode="decimal" data-format="currency"/></td><td><input type="text" value="${percent(growth)}" inputmode="decimal" data-format="percent"/></td>`;
+  tr.append(
+    createInputCell(name),
+    createSelectCell(['cash', 'investments', 'real_estate', 'vehicle'], cls),
+    createInputCell(currency(value), { type: 'text', inputMode: 'decimal', format: 'currency' }),
+    createInputCell(percent(growth), { type: 'text', inputMode: 'decimal', format: 'percent' }),
+  );
   tr.appendChild(createRowActions(tr, assetsBody));
   assetsBody.appendChild(tr);
   wireRowInputs(tr);
@@ -80,7 +114,12 @@ function addAssetRow(name, cls, value, growth) {
 
 function addLiabilityRow(name, balance, apr, minPayment) {
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input value="${name}"/></td><td><input type="text" value="${currency(balance)}" inputmode="decimal" data-format="currency"/></td><td><input type="text" value="${percent(apr)}" inputmode="decimal" data-format="percent"/></td><td><input type="text" value="${currency(minPayment)}" inputmode="decimal" data-format="currency"/></td>`;
+  tr.append(
+    createInputCell(name),
+    createInputCell(currency(balance), { type: 'text', inputMode: 'decimal', format: 'currency' }),
+    createInputCell(percent(apr), { type: 'text', inputMode: 'decimal', format: 'percent' }),
+    createInputCell(currency(minPayment), { type: 'text', inputMode: 'decimal', format: 'currency' }),
+  );
   tr.appendChild(createRowActions(tr, liabilitiesBody));
   liabilitiesBody.appendChild(tr);
   wireRowInputs(tr);
