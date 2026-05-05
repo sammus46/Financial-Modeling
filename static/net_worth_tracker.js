@@ -11,6 +11,7 @@ const milestonesList = document.getElementById('milestones-list');
 const themeToggleButton = document.getElementById('networth-theme-toggle');
 const THEME_KEY = 'financial-modeling-theme';
 const NET_WORTH_STATE_KEY = 'financial-modeling-networth-state-v1';
+const LEGACY_NET_WORTH_STATE_KEYS = ['financial-modeling-net-worth-state'];
 let chart;
 
 const currency = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v || 0);
@@ -156,12 +157,24 @@ function saveState() {
   localStorage.setItem(NET_WORTH_STATE_KEY, JSON.stringify(collect()));
 }
 
-function loadState() {
+function parseSavedState(key) {
   try {
-    return JSON.parse(localStorage.getItem(NET_WORTH_STATE_KEY) || 'null');
+    const state = JSON.parse(localStorage.getItem(key) || 'null');
+    return state && typeof state === 'object' ? state : null;
   } catch {
     return null;
   }
+}
+
+function loadState() {
+  const storageKeys = [NET_WORTH_STATE_KEY, ...LEGACY_NET_WORTH_STATE_KEYS];
+  for (const key of storageKeys) {
+    const state = parseSavedState(key);
+    if (state) {
+      return state;
+    }
+  }
+  return null;
 }
 
 function render(result) {
@@ -248,9 +261,11 @@ addLiabilityBtn.addEventListener('click', () => { addLiabilityRow('', 0, 0, 0); 
 
 initializeTheme();
 initializeForm();
+window.addEventListener('beforeunload', saveState);
 if (themeToggleButton) {
   themeToggleButton.addEventListener('click', () => {
     const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
     setTheme(nextTheme);
   });
 }
+run();
