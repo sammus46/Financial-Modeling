@@ -24,6 +24,43 @@ const percent = (v) => `${Number(v || 0).toFixed(2)}%`;
 const parseCurrencyInput = (value) => Number(String(value || '').replace(/[$,\s]/g, '')) || 0;
 const parsePercentInput = (value) => Number(String(value || '').replace(/[%,\s]/g, '')) || 0;
 
+
+const fiTargetOverlayPlugin = {
+  id: 'fiTargetOverlay',
+  afterDatasetsDraw(chartInstance, _args, pluginOptions) {
+    const targetValue = Number(pluginOptions?.targetValue);
+    if (!Number.isFinite(targetValue)) return;
+
+    const yScale = chartInstance.scales?.y;
+    const { left, right } = chartInstance.chartArea || {};
+    if (!yScale || !Number.isFinite(left) || !Number.isFinite(right)) return;
+
+    const y = yScale.getPixelForValue(targetValue);
+    if (!Number.isFinite(y)) return;
+
+    const ctx = chartInstance.ctx;
+    ctx.save();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = pluginOptions?.lineColor || '#dc2626';
+    ctx.setLineDash([8, 6]);
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+
+    const label = pluginOptions?.labelText || 'FI Goal';
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pluginOptions?.lineColor || '#dc2626';
+    ctx.font = '600 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(label, right - 4, y - 4);
+    ctx.restore();
+  },
+};
+
 function formatCurrencyInput(el) {
   const value = parseCurrencyInput(el.value);
   el.value = currency(value);
@@ -310,6 +347,7 @@ function render(result) {
   const theme = getChartTheme();
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
+    plugins: [fiTargetOverlayPlugin],
     type: 'line',
     data: {
       labels,
@@ -351,6 +389,11 @@ function render(result) {
       },
       plugins: {
         legend: { labels: { color: theme.axisColor } },
+        fiTargetOverlay: {
+          targetValue: fiTarget,
+          labelText: fiGoalLabel,
+          lineColor: theme.goalLine,
+        },
         tooltip: {
           callbacks: {
             label(context) {
