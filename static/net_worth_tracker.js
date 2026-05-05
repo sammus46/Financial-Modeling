@@ -42,8 +42,10 @@ const fiTargetOverlayPlugin = {
     ctx.save();
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = pluginOptions?.lineColor || '#dc2626';
-    ctx.setLineDash([8, 6]);
-    ctx.globalAlpha = 0.9;
+    ctx.setLineDash([10, 6]);
+    ctx.globalAlpha = 1;
+    ctx.shadowColor = pluginOptions?.lineColor || '#dc2626';
+    ctx.shadowBlur = 3;
     ctx.beginPath();
     ctx.moveTo(left, y);
     ctx.lineTo(right, y);
@@ -51,12 +53,15 @@ const fiTargetOverlayPlugin = {
 
     const label = pluginOptions?.labelText || 'FI Goal';
     ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
     ctx.fillStyle = pluginOptions?.lineColor || '#dc2626';
     ctx.font = '600 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(label, right - 4, y - 4);
+
+    const clampedY = Math.max((chartInstance.chartArea?.top || 0) + 14, Math.min(y - 4, (chartInstance.chartArea?.bottom || y) - 2));
+    ctx.fillText(label, right - 4, clampedY);
     ctx.restore();
   },
 };
@@ -211,6 +216,18 @@ function getNetWorthChartBounds({ low, median, high, fiGoal, mode = 'full-range'
   return { ...fullBounds, goalHint: goalValues.length ? Math.max(...goalValues) : null, mode: 'full-range' };
 }
 
+function applyGoalVisibilityPadding(bounds) {
+  if (!bounds) return { min: 0, max: 1 };
+  const min = Number(bounds.min);
+  const max = Number(bounds.max);
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return { ...bounds, min: 0, max: 1 };
+
+  const span = Math.max(max - min, 1);
+  const padding = Math.max(span * 0.08, 1);
+  return { ...bounds, min: min - padding, max: max + padding };
+}
+
+
 function getGoalHintAnnotation(bounds) {
   if (!bounds || !Number.isFinite(bounds.goalHint)) return '';
   if (bounds.goalHint >= bounds.min && bounds.goalHint <= bounds.max) return '';
@@ -335,7 +352,7 @@ function render(result) {
   const fiTarget = parseCurrencyInput(document.getElementById('fi_target').value);
   const fiGoalLabel = `FI Goal (${currency(fiTarget)})`;
   const fiGoal = labels.map(() => fiTarget);
-  const chartBounds = getNetWorthChartBounds({ low, median, high, fiGoal, mode: selectedBoundsMode });
+  const chartBounds = applyGoalVisibilityPadding(getNetWorthChartBounds({ low, median, high, fiGoal, mode: selectedBoundsMode }));
 
   const horizonPoint = result.timeline[result.timeline.length - 1];
   if (goalProgressSummaryEl && horizonPoint) {
