@@ -8,6 +8,7 @@ const currentNetWorthEl = document.getElementById('current-net-worth');
 const tenYearNetWorthEl = document.getElementById('ten-year-net-worth');
 const debtFreeDateEl = document.getElementById('debt-free-date');
 const milestonesList = document.getElementById('milestones-list');
+const goalProgressSummaryEl = document.getElementById('goal-progress-summary');
 const themeToggleButton = document.getElementById('networth-theme-toggle');
 const THEME_KEY = 'financial-modeling-theme';
 const NET_WORTH_STATE_KEY = 'financial-modeling-networth-state-v1';
@@ -263,6 +264,17 @@ function loadState() {
   return null;
 }
 
+function formatGoalGap(value) {
+  const absValue = Math.abs(Number(value) || 0);
+  return `${value >= 0 ? '+' : '-'}${currency(absValue)}`;
+}
+
+function getGoalGapNarrative(value) {
+  const absValue = Math.abs(Number(value) || 0);
+  if (absValue < 1) return 'At FI goal';
+  return `${formatGoalGap(value)} ${value >= 0 ? 'above' : 'below'} FI goal`;
+}
+
 function render(result) {
   lastResult = result;
   currentNetWorthEl.textContent = currency(result.current_net_worth);
@@ -279,8 +291,17 @@ function render(result) {
   const low = result.timeline.map((p) => p.net_worth_p10);
   const high = result.timeline.map((p) => p.net_worth_p90);
   const fiTarget = parseCurrencyInput(document.getElementById('fi_target').value);
+  const fiGoalLabel = `FI Goal (${currency(fiTarget)})`;
   const fiGoal = labels.map(() => fiTarget);
   const chartBounds = getNetWorthChartBounds({ low, median, high, fiGoal, mode: selectedBoundsMode });
+
+  const horizonPoint = result.timeline[result.timeline.length - 1];
+  if (goalProgressSummaryEl && horizonPoint) {
+    const horizonGap = Number(horizonPoint.net_worth_median || 0) - fiTarget;
+    const horizonLabel = `M${horizonPoint.month}`;
+    goalProgressSummaryEl.textContent = `Goal progress (${horizonLabel} median): ${getGoalGapNarrative(horizonGap)}`;
+  }
+
   const theme = getChartTheme();
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
@@ -292,7 +313,7 @@ function render(result) {
         { label: 'Median', data: median, borderColor: theme.medianLine },
         { label: 'P90', data: high, borderColor: theme.p90Line },
         // Canonical goal-line rendering path: keep FI goal as a standard dataset.
-        { label: 'FI Goal', data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
+        { label: fiGoalLabel, data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
       ],
     },
     options: {
@@ -314,7 +335,12 @@ function render(result) {
         tooltip: {
           callbacks: {
             label(context) {
-              return `${context.dataset.label}: ${currency(Number(context.parsed.y || 0))}`;
+              const value = Number(context.parsed.y || 0);
+              const baseLabel = `${context.dataset.label}: ${currency(value)}`;
+              if (!['P10', 'Median', 'P90'].includes(context.dataset.label)) return baseLabel;
+              const goalValue = Number(fiGoal[context.dataIndex] || fiTarget || 0);
+              const gap = value - goalValue;
+              return `${baseLabel} (${getGoalGapNarrative(gap)})`;
             },
             afterBody() {
               const hint = getGoalHintAnnotation(chartBounds);
