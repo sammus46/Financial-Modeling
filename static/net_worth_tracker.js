@@ -106,6 +106,50 @@ function getChartTheme() {
   };
 }
 
+function getFiniteChartBounds(values) {
+  const finiteValues = values.map(Number).filter(Number.isFinite);
+  if (!finiteValues.length) {
+    return { min: 0, max: 1 };
+  }
+
+  const min = Math.min(...finiteValues);
+  const max = Math.max(...finiteValues);
+  if (min === max) {
+    const padding = Math.max(Math.abs(max) * 0.05, 1);
+    return { min: min - padding, max: max + padding };
+  }
+
+  const padding = Math.max((max - min) * 0.05, Math.abs(max) * 0.05, 1);
+  return { min: min - padding, max: max + padding };
+}
+
+const netWorthGoalLinePlugin = {
+  id: 'netWorthGoalLine',
+  afterDatasetsDraw(chartInstance, _args, options) {
+    const goalValue = Number(options.goalValue);
+    const yScale = chartInstance.scales.y;
+    const chartArea = chartInstance.chartArea;
+    if (!Number.isFinite(goalValue) || !yScale || !chartArea) return;
+
+    const goalDatasetIndex = chartInstance.data.datasets.findIndex((dataset) => dataset.label === 'FI Goal');
+    if (goalDatasetIndex !== -1 && !chartInstance.isDatasetVisible(goalDatasetIndex)) return;
+
+    const y = yScale.getPixelForValue(goalValue);
+    if (!Number.isFinite(y) || y < chartArea.top || y > chartArea.bottom) return;
+
+    const ctx = chartInstance.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash(options.borderDash || [6, 6]);
+    ctx.lineWidth = options.borderWidth || 2.5;
+    ctx.strokeStyle = options.borderColor || '#ef4444';
+    ctx.moveTo(chartArea.left, y);
+    ctx.lineTo(chartArea.right, y);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+
 function setTheme(mode) {
   const isDark = mode === 'dark';
   document.body.classList.toggle('dark-mode', isDark);
@@ -194,20 +238,19 @@ function render(result) {
   const fiTarget = parseCurrencyInput(document.getElementById('fi_target').value);
   const fiGoal = labels.map(() => fiTarget);
   const chartValues = [...low, ...median, ...high, ...fiGoal];
-  const chartMin = Math.min(...chartValues);
-  const chartMax = Math.max(...chartValues);
-  const chartPadding = Math.max((chartMax - chartMin) * 0.05, Math.abs(chartMax) * 0.05, 1);
+  const chartBounds = getFiniteChartBounds(chartValues);
   const theme = getChartTheme();
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
     type: 'line',
+    plugins: [netWorthGoalLinePlugin],
     data: {
       labels,
       datasets: [
         { label: 'P10', data: low, borderColor: '#f59e0b' },
         { label: 'Median', data: median, borderColor: '#2563eb' },
         { label: 'P90', data: high, borderColor: '#16a34a' },
-        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], pointRadius: 0, fill: false },
+        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 0, fill: false },
       ],
     },
     options: {
@@ -218,14 +261,20 @@ function render(result) {
       scales: {
         x: { ticks: { color: theme.axisColor }, grid: { color: theme.gridColor } },
         y: {
-          suggestedMin: chartMin - chartPadding,
-          suggestedMax: chartMax + chartPadding,
+          min: chartBounds.min,
+          max: chartBounds.max,
           ticks: { color: theme.axisColor },
           grid: { color: theme.gridColor },
         },
       },
       plugins: {
         legend: { labels: { color: theme.axisColor } },
+        netWorthGoalLine: {
+          goalValue: fiTarget,
+          borderColor: '#ef4444',
+          borderDash: [6, 6],
+          borderWidth: 2.5,
+        },
         tooltip: {
           callbacks: {
             label(context) {
