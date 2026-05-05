@@ -157,9 +157,14 @@ function getNetWorthChartBounds({ low, median, high, fiGoal, mode = 'full-range'
     const upperExtension = Math.min(aboveGap * 0.2, maxExtension);
     const lowerExtension = Math.min(belowGap * 0.2, maxExtension);
 
+    const focusedMin = percentileBounds.min - lowerExtension;
+    const focusedMax = percentileBounds.max + upperExtension;
+    const goalPadding = Math.max(span * 0.02, 1);
+
     return {
-      min: percentileBounds.min - lowerExtension,
-      max: percentileBounds.max + upperExtension,
+      // Keep the progress-focused feel, but never clip the FI goal line entirely.
+      min: Math.min(focusedMin, goalHint - goalPadding),
+      max: Math.max(focusedMax, goalHint + goalPadding),
       goalHint,
       mode,
     };
