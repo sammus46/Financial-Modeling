@@ -61,6 +61,11 @@ def run() -> None:
         debt_html = debt_page.get_data(as_text=True)
         assert_ok("debt_tracker.js?v=" in debt_html, "debt page should include debt_tracker.js")
 
+        net_worth_page = client.get("/apps/net-worth-tracker")
+        assert_ok(net_worth_page.status_code == 200, "GET /apps/net-worth-tracker should return 200")
+        net_worth_html = net_worth_page.get_data(as_text=True)
+        assert_ok("net_worth_tracker.js?v=" in net_worth_html, "net worth page should include net_worth_tracker.js")
+
         percent_payload = build_base_payload()
         percent_payload.update(
             {
@@ -191,7 +196,26 @@ def run() -> None:
         assert_ok("monthly_totals" in debt_data, "debt response should include monthly totals")
         assert_ok(debt_data.get("max_horizon_months", 0) > 0, "debt response should include a positive horizon")
 
-    print("Smoke test passed: dashboard + retirement + emergency fund + debt tracker endpoints are healthy.")
+        net_worth_payload = {
+            "monthly_contribution": 1500,
+            "fi_target": 1000000,
+            "simulation_trials": 200,
+            "assets": [
+                {"name": "Checking", "asset_class": "cash", "current_value": 12000, "annual_growth_rate": 1.0},
+                {"name": "401k", "asset_class": "investments", "current_value": 85000, "annual_growth_rate": 6.5},
+            ],
+            "liabilities": [
+                {"name": "Car Loan", "balance": 18000, "annual_interest_rate": 4.9, "minimum_payment": 420},
+            ],
+        }
+        net_worth_response = client.post("/api/net-worth/calculate", json=net_worth_payload)
+        assert_ok(net_worth_response.status_code == 200, "POST /api/net-worth/calculate should return 200")
+        net_worth_data = net_worth_response.get_json() or {}
+        assert_ok(len(net_worth_data.get("timeline", [])) == 120, "net worth response should include 120 monthly points")
+        assert_ok("horizons" in net_worth_data, "net worth response should include horizons")
+        assert_ok("milestones" in net_worth_data, "net worth response should include milestones")
+
+    print("Smoke test passed: dashboard + retirement + emergency fund + debt tracker + net worth endpoints are healthy.")
 
 
 if __name__ == "__main__":
