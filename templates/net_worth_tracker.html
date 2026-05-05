@@ -27,14 +27,16 @@
         </div>
         <p id="networth-error" class="error" role="alert" aria-live="polite"></p>
         <section class="panel emergency-controls">
-          <label>Monthly Contribution ($)<input id="monthly_contribution" type="number" value="1500" min="0" /></label>
-          <label>FI Target ($)<input id="fi_target" type="number" value="1000000" min="1000" /></label>
+          <label>Monthly Contribution ($)<input id="monthly_contribution" type="text" value="$1,500" inputmode="decimal" /></label>
+          <label>FI Target ($)<input id="fi_target" type="text" value="$1,000,000" inputmode="decimal" /></label>
           <label>Simulation Trials<input id="simulation_trials" type="number" value="1000" min="200" max="5000" /></label>
         </section>
         <h2>Assets</h2>
-        <div class="table-wrapper"><table id="assets-table"><thead><tr><th>Name</th><th>Class</th><th>Current Value ($)</th><th>Annual Growth (%)</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><table id="assets-table"><thead><tr><th>Name</th><th>Class</th><th>Current Value ($)</th><th>Annual Growth (%)</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+        <button id="add-asset-row-btn" type="button" class="secondary-btn">Add Asset Row</button>
         <h2>Liabilities</h2>
-        <div class="table-wrapper"><table id="liabilities-table"><thead><tr><th>Name</th><th>Balance ($)</th><th>APR (%)</th><th>Min Payment ($)</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><table id="liabilities-table"><thead><tr><th>Name</th><th>Balance ($)</th><th>APR (%)</th><th>Min Payment ($)</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+        <button id="add-liability-row-btn" type="button" class="secondary-btn">Add Liability Row</button>
       </section>
       <section class="results-panel">
         <section class="summary-grid debt-summary-grid">
