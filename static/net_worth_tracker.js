@@ -318,7 +318,21 @@ function render(result) {
         { label: 'Median', data: median, borderColor: theme.medianLine, order: 3 },
         { label: 'P90', data: high, borderColor: theme.p90Line, order: 3 },
         // Canonical goal-line rendering path: keep FI goal as a standard dataset.
-        { label: fiGoalLabel, data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 3.5, pointRadius: 0, pointHoverRadius: 2, fill: false, order: 1 },
+        {
+          label: fiGoalLabel,
+          data: fiGoal,
+          borderColor: theme.goalLine,
+          borderDash: [6, 6],
+          borderWidth: 3.5,
+          pointRadius: 0,
+          pointHoverRadius: 2,
+          pointHitRadius: 10,
+          fill: false,
+          spanGaps: true,
+          clip: false,
+          // Draw after percentile series so the FI target remains visually obvious.
+          order: 99,
+        },
       ],
     },
     options: {
