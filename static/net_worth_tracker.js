@@ -92,11 +92,24 @@ function render(result){
     type:'line',
     data:{labels,datasets:[{label:'P10',data:low,borderColor:'#f59e0b'},{label:'Median',data:median,borderColor:'#2563eb'},{label:'P90',data:high,borderColor:'#16a34a'}]},
     options:{
+      interaction:{
+        mode:'index',
+        intersect:false,
+      },
       scales:{
         x:{ticks:{color:theme.axisColor},grid:{color:theme.gridColor}},
         y:{ticks:{color:theme.axisColor},grid:{color:theme.gridColor}}
       },
-      plugins:{legend:{labels:{color:theme.axisColor}}}
+      plugins:{
+        legend:{labels:{color:theme.axisColor}},
+        tooltip:{
+          callbacks:{
+            label(context){
+              return `${context.dataset.label}: ${currency(Number(context.parsed.y || 0))}`;
+            },
+          },
+        },
+      }
     }
   });
 }
