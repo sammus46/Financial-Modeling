@@ -191,11 +191,25 @@ function render(result) {
   const median = result.timeline.map((p) => p.net_worth_median);
   const low = result.timeline.map((p) => p.net_worth_p10);
   const high = result.timeline.map((p) => p.net_worth_p90);
+  const fiTarget = parseCurrencyInput(document.getElementById('fi_target').value);
+  const fiGoal = labels.map(() => fiTarget);
+  const chartValues = [...low, ...median, ...high, ...fiGoal];
+  const chartMin = Math.min(...chartValues);
+  const chartMax = Math.max(...chartValues);
+  const chartPadding = Math.max((chartMax - chartMin) * 0.05, Math.abs(chartMax) * 0.05, 1);
   const theme = getChartTheme();
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
     type: 'line',
-    data: { labels, datasets: [{ label: 'P10', data: low, borderColor: '#f59e0b' }, { label: 'Median', data: median, borderColor: '#2563eb' }, { label: 'P90', data: high, borderColor: '#16a34a' }] },
+    data: {
+      labels,
+      datasets: [
+        { label: 'P10', data: low, borderColor: '#f59e0b' },
+        { label: 'Median', data: median, borderColor: '#2563eb' },
+        { label: 'P90', data: high, borderColor: '#16a34a' },
+        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], pointRadius: 0, fill: false },
+      ],
+    },
     options: {
       interaction: {
         mode: 'index',
@@ -203,7 +217,12 @@ function render(result) {
       },
       scales: {
         x: { ticks: { color: theme.axisColor }, grid: { color: theme.gridColor } },
-        y: { ticks: { color: theme.axisColor }, grid: { color: theme.gridColor } },
+        y: {
+          suggestedMin: chartMin - chartPadding,
+          suggestedMax: chartMax + chartPadding,
+          ticks: { color: theme.axisColor },
+          grid: { color: theme.gridColor },
+        },
       },
       plugins: {
         legend: { labels: { color: theme.axisColor } },
