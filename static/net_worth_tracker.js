@@ -11,8 +11,11 @@ const milestonesList = document.getElementById('milestones-list');
 const themeToggleButton = document.getElementById('networth-theme-toggle');
 const THEME_KEY = 'financial-modeling-theme';
 const NET_WORTH_STATE_KEY = 'financial-modeling-networth-state-v1';
+const NET_WORTH_BOUNDS_MODE_KEY = 'financial-modeling-networth-bounds-mode-v1';
 const LEGACY_NET_WORTH_STATE_KEYS = ['financial-modeling-net-worth-state'];
 let chart;
+let lastResult = null;
+let selectedBoundsMode = localStorage.getItem(NET_WORTH_BOUNDS_MODE_KEY) === 'progress-focus' ? 'progress-focus' : 'full-range';
 
 const currency = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v || 0);
 const percent = (v) => `${Number(v || 0).toFixed(2)}%`;
@@ -123,6 +126,60 @@ function getFiniteChartBounds(values) {
   return { min: min - padding, max: max + padding };
 }
 
+
+function getNetWorthChartBounds({ low, median, high, fiGoal, mode = 'full-range' }) {
+  const percentileValues = [...(low || []), ...(median || []), ...(high || [])].map(Number).filter(Number.isFinite);
+  const goalValues = (fiGoal || []).map(Number).filter(Number.isFinite);
+
+  if (!percentileValues.length && !goalValues.length) {
+    return { min: 0, max: 1 };
+  }
+
+  if (mode === 'progress-focus') {
+    const percentileBounds = getFiniteChartBounds(percentileValues);
+    const goalHint = goalValues.length ? Math.max(...goalValues) : null;
+    if (!Number.isFinite(goalHint)) {
+      return { ...percentileBounds, goalHint: null, mode };
+    }
+
+    const span = Math.max(percentileBounds.max - percentileBounds.min, 1);
+    const aboveGap = Math.max(goalHint - percentileBounds.max, 0);
+    const belowGap = Math.max(percentileBounds.min - goalHint, 0);
+    const maxExtension = span * 0.35;
+    const upperExtension = Math.min(aboveGap * 0.2, maxExtension);
+    const lowerExtension = Math.min(belowGap * 0.2, maxExtension);
+
+    return {
+      min: percentileBounds.min - lowerExtension,
+      max: percentileBounds.max + upperExtension,
+      goalHint,
+      mode,
+    };
+  }
+
+  const fullBounds = getFiniteChartBounds([...percentileValues, ...goalValues]);
+  return { ...fullBounds, goalHint: goalValues.length ? Math.max(...goalValues) : null, mode: 'full-range' };
+}
+
+function getGoalHintAnnotation(bounds) {
+  if (!bounds || !Number.isFinite(bounds.goalHint)) return '';
+  if (bounds.goalHint >= bounds.min && bounds.goalHint <= bounds.max) return '';
+  const direction = bounds.goalHint > bounds.max ? 'above' : 'below';
+  return ` • FI goal ${direction} chart (${currency(bounds.goalHint)})`;
+}
+
+function setBoundsMode(mode) {
+  selectedBoundsMode = mode === 'progress-focus' ? 'progress-focus' : 'full-range';
+  localStorage.setItem(NET_WORTH_BOUNDS_MODE_KEY, selectedBoundsMode);
+  const boundsModeButton = document.getElementById('networth-bounds-mode-toggle');
+  if (boundsModeButton) {
+    const isProgressFocus = selectedBoundsMode === 'progress-focus';
+    boundsModeButton.textContent = isProgressFocus ? 'Bounds: Progress focus' : 'Bounds: Full range';
+    boundsModeButton.setAttribute('aria-pressed', String(isProgressFocus));
+  }
+  if (lastResult) render(lastResult);
+}
+
 function setTheme(mode) {
   const isDark = mode === 'dark';
   document.body.classList.toggle('dark-mode', isDark);
@@ -195,6 +252,7 @@ function loadState() {
 }
 
 function render(result) {
+  lastResult = result;
   currentNetWorthEl.textContent = currency(result.current_net_worth);
   tenYearNetWorthEl.textContent = currency(result.horizons.y10.median);
   debtFreeDateEl.textContent = result.milestones.debt_free_date || 'Not within horizon';
@@ -210,8 +268,7 @@ function render(result) {
   const high = result.timeline.map((p) => p.net_worth_p90);
   const fiTarget = parseCurrencyInput(document.getElementById('fi_target').value);
   const fiGoal = labels.map(() => fiTarget);
-  const chartValues = [...low, ...median, ...high, ...fiGoal];
-  const chartBounds = getFiniteChartBounds(chartValues);
+  const chartBounds = getNetWorthChartBounds({ low, median, high, fiGoal, mode: selectedBoundsMode });
   const theme = getChartTheme();
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
@@ -223,7 +280,7 @@ function render(result) {
         { label: 'Median', data: median, borderColor: '#2563eb' },
         { label: 'P90', data: high, borderColor: '#16a34a' },
         // Canonical goal-line rendering path: keep FI goal as a standard dataset.
-        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 0, fill: false, order: 99 },
+        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
       ],
     },
     options: {
@@ -246,6 +303,10 @@ function render(result) {
           callbacks: {
             label(context) {
               return `${context.dataset.label}: ${currency(Number(context.parsed.y || 0))}`;
+            },
+            afterBody() {
+              const hint = getGoalHintAnnotation(chartBounds);
+              return hint ? [hint] : [];
             },
           },
         },
@@ -296,6 +357,7 @@ addLiabilityBtn.addEventListener('click', () => { addLiabilityRow('', 0, 0, 0); 
 
 initializeTheme();
 initializeForm();
+setBoundsMode(selectedBoundsMode);
 window.addEventListener('beforeunload', saveState);
 if (themeToggleButton) {
   themeToggleButton.addEventListener('click', () => {
@@ -304,3 +366,11 @@ if (themeToggleButton) {
   });
 }
 run();
+
+const boundsModeToggleButton = document.getElementById('networth-bounds-mode-toggle');
+if (boundsModeToggleButton) {
+  boundsModeToggleButton.addEventListener('click', () => {
+    const nextMode = selectedBoundsMode === 'full-range' ? 'progress-focus' : 'full-range';
+    setBoundsMode(nextMode);
+  });
+}
