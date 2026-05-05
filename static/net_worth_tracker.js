@@ -123,33 +123,6 @@ function getFiniteChartBounds(values) {
   return { min: min - padding, max: max + padding };
 }
 
-const netWorthGoalLinePlugin = {
-  id: 'netWorthGoalLine',
-  afterDatasetsDraw(chartInstance, _args, options) {
-    const goalValue = Number(options.goalValue);
-    const yScale = chartInstance.scales.y;
-    const chartArea = chartInstance.chartArea;
-    if (!Number.isFinite(goalValue) || !yScale || !chartArea) return;
-
-    const goalDatasetIndex = chartInstance.data.datasets.findIndex((dataset) => dataset.label === 'FI Goal');
-    if (goalDatasetIndex !== -1 && !chartInstance.isDatasetVisible(goalDatasetIndex)) return;
-
-    const y = yScale.getPixelForValue(goalValue);
-    if (!Number.isFinite(y) || y < chartArea.top || y > chartArea.bottom) return;
-
-    const ctx = chartInstance.ctx;
-    ctx.save();
-    ctx.beginPath();
-    ctx.setLineDash(options.borderDash || [6, 6]);
-    ctx.lineWidth = options.borderWidth || 2.5;
-    ctx.strokeStyle = options.borderColor || '#ef4444';
-    ctx.moveTo(chartArea.left, y);
-    ctx.lineTo(chartArea.right, y);
-    ctx.stroke();
-    ctx.restore();
-  },
-};
-
 function setTheme(mode) {
   const isDark = mode === 'dark';
   document.body.classList.toggle('dark-mode', isDark);
@@ -243,14 +216,14 @@ function render(result) {
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('networthChart'), {
     type: 'line',
-    plugins: [netWorthGoalLinePlugin],
     data: {
       labels,
       datasets: [
         { label: 'P10', data: low, borderColor: '#f59e0b' },
         { label: 'Median', data: median, borderColor: '#2563eb' },
         { label: 'P90', data: high, borderColor: '#16a34a' },
-        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 0, fill: false },
+        // Canonical goal-line rendering path: keep FI goal as a standard dataset.
+        { label: 'FI Goal', data: fiGoal, borderColor: '#ef4444', borderDash: [6, 6], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 0, fill: false, order: 99 },
       ],
     },
     options: {
@@ -269,12 +242,6 @@ function render(result) {
       },
       plugins: {
         legend: { labels: { color: theme.axisColor } },
-        netWorthGoalLine: {
-          goalValue: fiTarget,
-          borderColor: '#ef4444',
-          borderDash: [6, 6],
-          borderWidth: 2.5,
-        },
         tooltip: {
           callbacks: {
             label(context) {
