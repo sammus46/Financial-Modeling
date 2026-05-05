@@ -29,39 +29,22 @@ const fiTargetOverlayPlugin = {
   id: 'fiTargetOverlay',
   afterDatasetsDraw(chartInstance, _args, pluginOptions) {
     const targetValue = Number(pluginOptions?.targetValue);
+    const label = pluginOptions?.labelText || 'FI Goal';
     if (!Number.isFinite(targetValue)) return;
 
     const yScale = chartInstance.scales?.y;
-    const { left, right } = chartInstance.chartArea || {};
-    if (!yScale || !Number.isFinite(left) || !Number.isFinite(right)) return;
-
+    const { right, top, bottom } = chartInstance.chartArea || {};
+    if (!yScale || !Number.isFinite(right) || !Number.isFinite(top) || !Number.isFinite(bottom)) return;
     const y = yScale.getPixelForValue(targetValue);
-    if (!Number.isFinite(y)) return;
+    if (!Number.isFinite(y) || y < top || y > bottom) return;
 
     const ctx = chartInstance.ctx;
     ctx.save();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = pluginOptions?.lineColor || '#dc2626';
-    ctx.setLineDash([10, 6]);
-    ctx.globalAlpha = 1;
-    ctx.shadowColor = pluginOptions?.lineColor || '#dc2626';
-    ctx.shadowBlur = 3;
-    ctx.beginPath();
-    ctx.moveTo(left, y);
-    ctx.lineTo(right, y);
-    ctx.stroke();
-
-    const label = pluginOptions?.labelText || 'FI Goal';
-    ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
     ctx.fillStyle = pluginOptions?.lineColor || '#dc2626';
     ctx.font = '600 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
-
-    const clampedY = Math.max((chartInstance.chartArea?.top || 0) + 14, Math.min(y - 4, (chartInstance.chartArea?.bottom || y) - 2));
-    ctx.fillText(label, right - 4, clampedY);
+    ctx.fillText(label, right - 4, Math.max(top + 14, y - 4));
     ctx.restore();
   },
 };
@@ -382,9 +365,11 @@ function render(result) {
           pointRadius: 0,
           pointHoverRadius: 2,
           pointHitRadius: 10,
+          tension: 0,
           fill: false,
           spanGaps: true,
           clip: false,
+          yAxisID: 'y',
           // Draw after percentile series so the FI target remains visually obvious.
           order: 99,
         },
@@ -405,7 +390,12 @@ function render(result) {
         },
       },
       plugins: {
-        legend: { labels: { color: theme.axisColor } },
+        legend: {
+          labels: {
+            color: theme.axisColor,
+            useLineStyle: true,
+          },
+        },
         fiTargetOverlay: {
           targetValue: fiTarget,
           labelText: fiGoalLabel,
