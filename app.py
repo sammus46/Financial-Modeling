@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from datetime import datetime
+import hashlib
 import os
 from math import isclose
 import math
@@ -145,15 +146,26 @@ def _ensure_finite(value: float, path: str) -> None:
         raise ValidationError(f"Field '{path}' must be a finite number.")
 
 
-def _static_version() -> int:
+def _static_version() -> str:
     static_dir = Path(app.root_path) / "static"
-    tracked = ["styles.css", "app.js", "retirement.js", "emergency_fund.js", "dashboard.js", "debt_tracker.js", "net_worth_tracker.js"]
-    mtimes = []
+    tracked = [
+        "styles.css",
+        "app.js",
+        "retirement.js",
+        "emergency_fund.js",
+        "dashboard.js",
+        "debt_tracker.js",
+        "net_worth_tracker.js",
+    ]
+    digest = hashlib.sha256()
     for filename in tracked:
         file_path = static_dir / filename
         if file_path.exists():
-            mtimes.append(int(file_path.stat().st_mtime))
-    return max(mtimes) if mtimes else 1
+            digest.update(filename.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(file_path.read_bytes())
+            digest.update(b"\0")
+    return digest.hexdigest()[:16]
 
 
 @app.context_processor
