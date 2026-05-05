@@ -110,7 +110,7 @@ function getChartTheme() {
   return {
     axisColor: getComputedColor('--axis-color') || '#1e293b',
     gridColor: getComputedColor('--grid-color') || 'rgba(148, 163, 184, 0.22)',
-    goalLine: getComputedColor('--chart-networth-goal-line') || getComputedColor('--chart-goal-line') || '#ef4444',
+    goalLine: getComputedColor('--chart-networth-goal-line') || getComputedColor('--chart-goal-line') || '#dc2626',
     medianLine: getComputedColor('--chart-networth-median-line') || getComputedColor('--chart-balance-line') || '#2563eb',
     p10Line: getComputedColor('--chart-networth-p10-line') || getComputedColor('--chart-p10-line') || '#f59e0b',
     p90Line: getComputedColor('--chart-networth-p90-line') || getComputedColor('--chart-p90-line') || '#16a34a',
@@ -314,11 +314,11 @@ function render(result) {
     data: {
       labels,
       datasets: [
-        { label: 'P10', data: low, borderColor: theme.p10Line },
-        { label: 'Median', data: median, borderColor: theme.medianLine },
-        { label: 'P90', data: high, borderColor: theme.p90Line },
+        { label: 'P10', data: low, borderColor: theme.p10Line, order: 3 },
+        { label: 'Median', data: median, borderColor: theme.medianLine, order: 3 },
+        { label: 'P90', data: high, borderColor: theme.p90Line, order: 3 },
         // Canonical goal-line rendering path: keep FI goal as a standard dataset.
-        { label: fiGoalLabel, data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 2.5, pointRadius: selectedBoundsMode === 'progress-focus' ? 1 : 0, pointHoverRadius: 2, fill: false, order: 99 },
+        { label: fiGoalLabel, data: fiGoal, borderColor: theme.goalLine, borderDash: [6, 6], borderWidth: 3.5, pointRadius: 0, pointHoverRadius: 2, fill: false, order: 1 },
       ],
     },
     options: {
