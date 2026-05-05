@@ -21,6 +21,12 @@
   --grid-color: rgba(148, 163, 184, 0.22);
   --chart-balance-line: #2563eb;
   --chart-goal-line: #f59e0b;
+  --chart-p10-line: #f59e0b;
+  --chart-p90-line: #16a34a;
+  --chart-networth-goal-line: #ef4444;
+  --chart-networth-median-line: var(--chart-balance-line);
+  --chart-networth-p10-line: var(--chart-p10-line);
+  --chart-networth-p90-line: var(--chart-p90-line);
   --chart-crossover: #16a34a;
   --tooltip-bg: rgba(15, 23, 42, 0.92);
   --tooltip-border: rgba(148, 163, 184, 0.25);
@@ -48,6 +54,12 @@ body.dark-mode {
   --grid-color: rgba(100, 116, 139, 0.35);
   --chart-balance-line: #60a5fa;
   --chart-goal-line: #fbbf24;
+  --chart-p10-line: #fbbf24;
+  --chart-p90-line: #4ade80;
+  --chart-networth-goal-line: #f87171;
+  --chart-networth-median-line: var(--chart-balance-line);
+  --chart-networth-p10-line: var(--chart-p10-line);
+  --chart-networth-p90-line: var(--chart-p90-line);
   --chart-crossover: #4ade80;
   --tooltip-bg: rgba(2, 6, 23, 0.95);
   --tooltip-border: rgba(148, 163, 184, 0.4);
