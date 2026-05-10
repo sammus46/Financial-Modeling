@@ -164,8 +164,28 @@ body.dashboard-page {
 }
 
 .form-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   cursor: pointer;
   list-style: none;
+  margin: -0.1rem -0.35rem 0.35rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.form-section summary:hover {
+  background: color-mix(in oklab, var(--card-bg) 72%, var(--border-soft));
+}
+
+.form-section summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  background: color-mix(in oklab, var(--card-bg) 70%, var(--border-soft));
 }
 
 .form-section summary::-webkit-details-marker {
@@ -173,21 +193,48 @@ body.dashboard-page {
 }
 
 .form-section h2 {
-  margin: 0.35rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 0.75rem;
+  margin: 0;
   font-size: 0.98rem;
   color: #3b82f6;
 }
 
 .form-section summary h2::after {
-  content: "▾";
-  float: right;
+  content: "›";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card-bg) 86%, var(--border-soft));
   color: var(--muted-text);
-  font-size: 0.85rem;
-  line-height: 1.4rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.form-section summary:hover h2::after,
+.form-section summary:focus-visible h2::after {
+  background: color-mix(in oklab, var(--focus) 14%, var(--card-bg));
+  border-color: var(--focus);
+  color: var(--focus);
 }
 
 .form-section:not([open]) summary h2::after {
-  content: "▸";
+  transform: rotate(0deg);
 }
 
 .section-body {
