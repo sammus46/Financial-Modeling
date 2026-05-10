@@ -209,14 +209,14 @@ body.dashboard-page {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   background: color-mix(in oklab, var(--card-bg) 86%, var(--border-soft));
   color: var(--muted-text);
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 900;
   line-height: 1;
   transform: rotate(90deg);
   transition:
