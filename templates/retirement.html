@@ -68,26 +68,33 @@
                 <input id="brokerage_assets" type="text" name="brokerage_assets" value="10000" inputmode="decimal" data-currency="true" />
               </label>
 
-              <fieldset class="contribution-mode">
+              <fieldset class="contribution-mode" data-mode="percent">
                 <legend>Contribution method <span class="field-tag required">Required</span></legend>
                 <p class="field-help">Pick one method. Only the active method is used in calculations.</p>
-                <label class="radio">
-                  <input type="radio" name="contribution_mode" value="percent" checked />
-                  Use % of income saved
-                </label>
-                <label for="savings_rate">
-                  % of income saved <span class="field-tag required">Required in % mode</span>
-                  <input id="savings_rate" type="number" name="savings_rate" value="20" min="0" max="100" step="0.01" />
-                </label>
+                <div class="contribution-toggle" aria-label="Contribution method">
+                  <label class="contribution-toggle-option" data-mode-option="percent">
+                    <input type="radio" name="contribution_mode" value="percent" checked />
+                    <span>% of income</span>
+                  </label>
+                  <label class="contribution-toggle-option" data-mode-option="fixed">
+                    <input type="radio" name="contribution_mode" value="fixed" />
+                    <span>Fixed annual</span>
+                  </label>
+                </div>
 
-                <label class="radio">
-                  <input type="radio" name="contribution_mode" value="fixed" />
-                  Use fixed annual contribution
-                </label>
-                <label for="fixed_annual_contribution">
-                  Fixed annual contribution ($) <span class="field-tag required">Required in fixed mode</span>
-                  <input id="fixed_annual_contribution" type="text" name="fixed_annual_contribution" value="0" inputmode="decimal" data-currency="true" />
-                </label>
+                <div class="contribution-input-panel" data-contribution-panel="percent" aria-hidden="false">
+                  <label for="savings_rate">
+                    % of income saved <span class="field-tag required">Required in % mode</span>
+                    <input id="savings_rate" type="number" name="savings_rate" value="20" min="0" max="100" step="0.01" />
+                  </label>
+                </div>
+
+                <div class="contribution-input-panel" data-contribution-panel="fixed" aria-hidden="true" hidden>
+                  <label for="fixed_annual_contribution">
+                    Fixed annual contribution ($) <span class="field-tag required">Required in fixed mode</span>
+                    <input id="fixed_annual_contribution" type="text" name="fixed_annual_contribution" value="0" inputmode="decimal" data-currency="true" />
+                  </label>
+                </div>
               </fieldset>
 
               <label for="traditional_contribution_pct">
