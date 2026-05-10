@@ -70,6 +70,53 @@ class TrainingPipelineEdgeTests(unittest.TestCase):
         self.assertGreaterEqual(out["success_probability_pct"], 0.0)
         self.assertLessEqual(out["success_probability_pct"], 100.0)
 
+    def test_dynamic_goal_line_uses_glidepath_returns(self):
+        payload = dict(
+            self.base_payload,
+            current_age=30,
+            retirement_age=32,
+            traditional_return_rate=100,
+            roth_return_rate=100,
+            brokerage_return_rate=100,
+            enable_glidepath=True,
+            glidepath_equity_start=100,
+            glidepath_equity_end=100,
+            glidepath_equity_return_rate=0,
+            glidepath_bond_return_rate=0,
+            enable_monte_carlo=False,
+        )
+        out = calculate_projection(parse_inputs(payload))
+        for dynamic_goal_value, static_goal_value in zip(out["dynamic_goal_line"], out["goal_line"]):
+            self.assertAlmostEqual(dynamic_goal_value, static_goal_value)
+
+    def test_monte_carlo_paths_use_glidepath_returns(self):
+        payload = dict(
+            self.base_payload,
+            current_age=30,
+            retirement_age=32,
+            salary_growth_rate=0,
+            inflation_rate=0,
+            traditional_return_rate=100,
+            roth_return_rate=100,
+            brokerage_return_rate=100,
+            traditional_retirement_tax_rate=0,
+            brokerage_retirement_tax_rate=0,
+            enable_glidepath=True,
+            glidepath_equity_start=100,
+            glidepath_equity_end=100,
+            glidepath_equity_return_rate=0,
+            glidepath_bond_return_rate=0,
+            enable_monte_carlo=True,
+            monte_carlo_trials=100,
+            monte_carlo_return_stddev=0,
+            monte_carlo_inflation_stddev=0,
+            monte_carlo_seed=123,
+        )
+        out = calculate_projection(parse_inputs(payload))
+        median_path = out["monte_carlo"]["path_percentiles"]["p50"]
+        for simulated_value, deterministic_value in zip(median_path, out["post_tax_balances"]):
+            self.assertAlmostEqual(simulated_value, deterministic_value)
+
 
 class InferenceEdgeTests(unittest.TestCase):
     def setUp(self):
