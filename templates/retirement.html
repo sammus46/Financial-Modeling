@@ -98,17 +98,18 @@
               </fieldset>
 
               <label for="traditional_contribution_pct">
-                Traditional contribution allocation (%) <span class="field-tag required">Required</span>
-                <input id="traditional_contribution_pct" type="number" name="traditional_contribution_pct" value="34" min="0" max="100" step="0.01" required />
+                <span data-contribution-split-label="traditional">Traditional contribution (% of income)</span> <span class="field-tag required">Required</span>
+                <input id="traditional_contribution_pct" type="text" name="traditional_contribution_pct" value="6.8" inputmode="decimal" data-contribution-split="traditional" aria-describedby="contribution_split_error" required />
               </label>
               <label for="roth_contribution_pct">
-                Roth contribution allocation (%) <span class="field-tag required">Required</span>
-                <input id="roth_contribution_pct" type="number" name="roth_contribution_pct" value="33" min="0" max="100" step="0.01" required />
+                <span data-contribution-split-label="roth">Roth contribution (% of income)</span> <span class="field-tag required">Required</span>
+                <input id="roth_contribution_pct" type="text" name="roth_contribution_pct" value="6.6" inputmode="decimal" data-contribution-split="roth" aria-describedby="contribution_split_error" required />
               </label>
               <label for="brokerage_contribution_pct">
-                Brokerage contribution allocation (%) <span class="field-tag required">Required</span>
-                <input id="brokerage_contribution_pct" type="number" name="brokerage_contribution_pct" value="33" min="0" max="100" step="0.01" required />
+                <span data-contribution-split-label="brokerage">Brokerage contribution (% of income)</span> <span class="field-tag required">Required</span>
+                <input id="brokerage_contribution_pct" type="text" name="brokerage_contribution_pct" value="6.6" inputmode="decimal" data-contribution-split="brokerage" aria-describedby="contribution_split_error" required />
               </label>
+              <p id="contribution_split_error" class="field-error contribution-split-error" role="alert" aria-live="polite"></p>
 
               <label for="traditional_return_rate">
                 Traditional pre-tax return rate (%) <span class="field-tag optional">Advanced</span>
