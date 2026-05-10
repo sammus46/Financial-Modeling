@@ -13,6 +13,7 @@ const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
 const inputsPanel = document.querySelector(".inputs-panel");
 const chartModeButtons = document.querySelectorAll("[data-chart-mode]");
 const goalModeToggleButton = document.getElementById("goal-mode-toggle");
+const contributionHarmonizeButton = document.getElementById("contribution-harmonize-btn");
 const contributionSplitInputs = Array.from(form.querySelectorAll("[data-contribution-split]"));
 const contributionSplitErrorEl = document.getElementById("contribution_split_error");
 const contributionSplitLabels = {
@@ -28,10 +29,15 @@ let latestChartData = null;
 let selectedChartMode = "balance";
 let selectedGoalMode = "static";
 let contributionSplitMode = "percent";
+let contributionSplitValuesByMode = {
+  percent: null,
+  fixed: null,
+};
 
 const THEME_KEY = "financial-modeling-theme";
 const FORM_VALUES_KEY = "retirement-form-values-v1";
 const GOAL_MODE_KEY = "retirement-goal-mode-v1";
+const CONTRIBUTION_SPLIT_STATE_KEY = "__contribution_split_values_by_mode";
 const CALCULATE_TIMEOUT_MS = 20000;
 const CONTRIBUTION_SPLIT_TOLERANCE = 0.01;
 const DEFAULT_CONTRIBUTION_SPLIT_RATIOS = [0.34, 0.33, 0.33];
@@ -521,12 +527,13 @@ function renderSummary(stats) {
   });
 }
 
-function syncContributionMode({ preserveSplitRatios = false } = {}) {
+function syncContributionMode() {
   const mode = form.elements["contribution_mode"].value;
   const usingPercent = mode === "percent";
 
-  if (preserveSplitRatios && contributionSplitMode !== mode) {
-    convertContributionSplitValues(contributionSplitMode, mode);
+  if (contributionSplitMode !== mode) {
+    syncCurrentContributionSplitState();
+    loadContributionSplitState(mode);
   }
 
   savingsRateInput.disabled = !usingPercent;
@@ -544,6 +551,7 @@ function syncContributionMode({ preserveSplitRatios = false } = {}) {
 
   syncContributionSplitLabels(mode);
   contributionSplitMode = mode;
+  updateContributionHarmonizeButton(mode);
   refreshContributionSplitWarning();
 }
 
@@ -630,18 +638,76 @@ function setContributionSplitValues(values, mode) {
   });
 }
 
-function convertContributionSplitValues(fromMode, toMode) {
-  const currentValues = getContributionSplitValuesFromInputs(fromMode);
-  const currentSum = currentValues.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0);
-  const denominator = currentSum > 0 ? currentSum : getContributionTotalFromFields(fromMode);
+function getDefaultContributionSplitValues(mode) {
+  const total = getContributionTotalFromFields(mode);
+  if (!Number.isFinite(total) || total <= 0) {
+    return [0, 0, 0];
+  }
+  return DEFAULT_CONTRIBUTION_SPLIT_RATIOS.map((ratio) => ratio * total);
+}
+
+function normalizeContributionSplitStateValues(values, mode) {
+  if (!Array.isArray(values) || values.length !== contributionSplitInputs.length) {
+    return null;
+  }
+  const normalizedValues = values.map((value) => parseContributionNumber(value, mode));
+  if (normalizedValues.some((value) => !Number.isFinite(value))) {
+    return null;
+  }
+  return normalizedValues;
+}
+
+function syncCurrentContributionSplitState() {
+  if (!["percent", "fixed"].includes(contributionSplitMode)) {
+    return;
+  }
+  contributionSplitValuesByMode[contributionSplitMode] = getContributionSplitValuesFromInputs(contributionSplitMode);
+}
+
+function initializeContributionSplitState() {
+  const mode = form.elements["contribution_mode"].value;
+  const currentValues = getContributionSplitValuesFromInputs(mode);
+  contributionSplitValuesByMode[mode] = currentValues;
+  ["percent", "fixed"].forEach((stateMode) => {
+    if (!contributionSplitValuesByMode[stateMode]) {
+      contributionSplitValuesByMode[stateMode] =
+        stateMode === mode ? currentValues : getDefaultContributionSplitValues(stateMode);
+    }
+  });
+}
+
+function loadContributionSplitState(mode) {
+  const values = contributionSplitValuesByMode[mode] || getDefaultContributionSplitValues(mode);
+  setContributionSplitValues(values, mode);
+}
+
+function getOppositeContributionMode(mode) {
+  return mode === "fixed" ? "percent" : "fixed";
+}
+
+function applyContributionSplitRatiosFromMode(sourceMode, targetMode) {
+  const sourceValues = contributionSplitValuesByMode[sourceMode] || getDefaultContributionSplitValues(sourceMode);
+  const sourceTotal = sourceValues.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0);
   const ratios =
-    Number.isFinite(denominator) && denominator > 0
-      ? currentValues.map((value) => (Number.isFinite(value) ? value / denominator : 0))
+    sourceTotal > 0
+      ? sourceValues.map((value) => (Number.isFinite(value) ? value / sourceTotal : 0))
       : DEFAULT_CONTRIBUTION_SPLIT_RATIOS;
-  const nextTotal = getContributionTotalFromFields(toMode);
-  const nextValues =
-    Number.isFinite(nextTotal) && nextTotal > 0 ? ratios.map((ratio) => ratio * nextTotal) : ratios.map(() => 0);
-  setContributionSplitValues(nextValues, toMode);
+  const targetTotal = getContributionTotalFromFields(targetMode);
+  const targetValues =
+    Number.isFinite(targetTotal) && targetTotal > 0 ? ratios.map((ratio) => ratio * targetTotal) : [0, 0, 0];
+  contributionSplitValuesByMode[targetMode] = targetValues;
+  if (targetMode === contributionSplitMode) {
+    setContributionSplitValues(targetValues, targetMode);
+  }
+}
+
+function updateContributionHarmonizeButton(mode) {
+  if (!contributionHarmonizeButton) {
+    return;
+  }
+  contributionHarmonizeButton.textContent = mode === "fixed" ? "Match % split" : "Match fixed split";
+  contributionHarmonizeButton.title =
+    mode === "fixed" ? "Use the percent split proportions here" : "Use the fixed split proportions here";
 }
 
 function syncContributionSplitLabels(mode) {
@@ -934,7 +1000,9 @@ function validateForm(payload) {
 
 
 function saveFormValues() {
+  syncCurrentContributionSplitState();
   const payload = Object.fromEntries(new FormData(form).entries());
+  payload[CONTRIBUTION_SPLIT_STATE_KEY] = contributionSplitValuesByMode;
   localStorage.setItem(FORM_VALUES_KEY, JSON.stringify(payload));
 }
 
@@ -945,7 +1013,17 @@ function applySavedFormValues() {
   }
   try {
     const values = JSON.parse(saved);
+    const savedSplitState = values[CONTRIBUTION_SPLIT_STATE_KEY] || {};
+    ["percent", "fixed"].forEach((mode) => {
+      const splitValues = normalizeContributionSplitStateValues(savedSplitState[mode], mode);
+      if (splitValues) {
+        contributionSplitValuesByMode[mode] = splitValues;
+      }
+    });
     Object.entries(values).forEach(([name, value]) => {
+      if (name === CONTRIBUTION_SPLIT_STATE_KEY) {
+        return;
+      }
       const field = form.elements[name];
       if (!field) {
         return;
@@ -985,7 +1063,6 @@ function migrateLegacyContributionSplitValues() {
     values.map((value) => (value / 100) * activeTotal),
     mode,
   );
-  saveFormValues();
   logDebug("Migrated saved contribution allocation values to contribution split values.");
 }
 
@@ -1089,13 +1166,25 @@ fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 applySavedFormValues();
 migrateLegacyContributionSplitValues();
+initializeContributionSplitState();
 contributionSplitMode = form.elements["contribution_mode"].value;
 
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
-  radio.addEventListener("change", () => syncContributionMode({ preserveSplitRatios: true }));
+  radio.addEventListener("change", syncContributionMode);
   radio.addEventListener("change", saveFormValues);
 });
+
+if (contributionHarmonizeButton) {
+  contributionHarmonizeButton.addEventListener("click", () => {
+    const mode = form.elements["contribution_mode"].value;
+    const sourceMode = getOppositeContributionMode(mode);
+    syncCurrentContributionSplitState();
+    applyContributionSplitRatiosFromMode(sourceMode, mode);
+    refreshContributionSplitWarning();
+    saveFormValues();
+  });
+}
 
 form.querySelectorAll("input").forEach((input) => {
   input.addEventListener("input", () => {

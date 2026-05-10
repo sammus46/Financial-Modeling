@@ -71,15 +71,20 @@
               <fieldset class="contribution-mode" data-mode="percent">
                 <legend>Contribution method <span class="field-tag required">Required</span></legend>
                 <p class="field-help">Pick one method. Only the active method is used in calculations.</p>
-                <div class="contribution-toggle" aria-label="Contribution method">
-                  <label class="contribution-toggle-option" data-mode-option="percent">
-                    <input type="radio" name="contribution_mode" value="percent" checked />
-                    <span>% of income</span>
-                  </label>
-                  <label class="contribution-toggle-option" data-mode-option="fixed">
-                    <input type="radio" name="contribution_mode" value="fixed" />
-                    <span>Fixed annual</span>
-                  </label>
+                <div class="contribution-toggle-row">
+                  <div class="contribution-toggle" aria-label="Contribution method">
+                    <label class="contribution-toggle-option" data-mode-option="percent">
+                      <input type="radio" name="contribution_mode" value="percent" checked />
+                      <span>% of income</span>
+                    </label>
+                    <label class="contribution-toggle-option" data-mode-option="fixed">
+                      <input type="radio" name="contribution_mode" value="fixed" />
+                      <span>Fixed annual</span>
+                    </label>
+                  </div>
+                  <button id="contribution-harmonize-btn" type="button" class="secondary-btn contribution-harmonize-btn">
+                    Match fixed split
+                  </button>
                 </div>
 
                 <div class="contribution-input-panel" data-contribution-panel="percent" aria-hidden="false">
