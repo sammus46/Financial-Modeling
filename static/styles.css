@@ -15,6 +15,7 @@
   --shadow-card: 0 8px 28px rgba(15, 23, 42, 0.08);
   --input-bg: #fff;
   --input-disabled-bg: #f1f5f9;
+  --input-error-bg: #fef2f2;
   --table-border: #eaecf0;
   --focus: #4f46e5;
   --axis-color: #1e293b;
@@ -48,6 +49,7 @@ body.dark-mode {
   --shadow-card: 0 10px 30px rgba(2, 6, 23, 0.5);
   --input-bg: #0b1220;
   --input-disabled-bg: #1e293b;
+  --input-error-bg: rgba(127, 29, 29, 0.35);
   --table-border: #334155;
   --focus: #818cf8;
   --axis-color: #cbd5e1;
@@ -463,6 +465,10 @@ select:focus-visible {
 input[aria-invalid="true"] {
   border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
+input[data-contribution-split][aria-invalid="true"] {
+  background: var(--input-error-bg);
 }
 
 .actions {

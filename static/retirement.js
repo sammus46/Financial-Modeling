@@ -13,6 +13,13 @@ const currencyInputs = form.querySelectorAll('input[data-currency="true"]');
 const inputsPanel = document.querySelector(".inputs-panel");
 const chartModeButtons = document.querySelectorAll("[data-chart-mode]");
 const goalModeToggleButton = document.getElementById("goal-mode-toggle");
+const contributionSplitInputs = Array.from(form.querySelectorAll("[data-contribution-split]"));
+const contributionSplitErrorEl = document.getElementById("contribution_split_error");
+const contributionSplitLabels = {
+  traditional: form.querySelector('[data-contribution-split-label="traditional"]'),
+  roth: form.querySelector('[data-contribution-split-label="roth"]'),
+  brokerage: form.querySelector('[data-contribution-split-label="brokerage"]'),
+};
 
 let savingsRateInput;
 let fixedContributionInput;
@@ -20,11 +27,15 @@ let portfolioChart;
 let latestChartData = null;
 let selectedChartMode = "balance";
 let selectedGoalMode = "static";
+let contributionSplitMode = "percent";
 
 const THEME_KEY = "financial-modeling-theme";
 const FORM_VALUES_KEY = "retirement-form-values-v1";
 const GOAL_MODE_KEY = "retirement-goal-mode-v1";
 const CALCULATE_TIMEOUT_MS = 20000;
+const CONTRIBUTION_SPLIT_TOLERANCE = 0.01;
+const DEFAULT_CONTRIBUTION_SPLIT_RATIOS = [0.34, 0.33, 0.33];
+const CONTRIBUTION_SPLIT_FIELDS = contributionSplitInputs.map((input) => input.name);
 
 const DEBUG_PREFIX = "[retirement-ui]";
 
@@ -510,9 +521,13 @@ function renderSummary(stats) {
   });
 }
 
-function syncContributionMode() {
+function syncContributionMode({ preserveSplitRatios = false } = {}) {
   const mode = form.elements["contribution_mode"].value;
   const usingPercent = mode === "percent";
+
+  if (preserveSplitRatios && contributionSplitMode !== mode) {
+    convertContributionSplitValues(contributionSplitMode, mode);
+  }
 
   savingsRateInput.disabled = !usingPercent;
   fixedContributionInput.disabled = usingPercent;
@@ -526,10 +541,23 @@ function syncContributionMode() {
       panel.setAttribute("aria-hidden", String(!isActivePanel));
     });
   }
+
+  syncContributionSplitLabels(mode);
+  contributionSplitMode = mode;
+  refreshContributionSplitWarning();
+}
+
+function formatDecimalValue(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  return Number(value.toFixed(2)).toString();
 }
 
 function parseCurrencyInput(value) {
-  const numeric = value.replace(/[^0-9.]/g, "");
+  const cleaned = String(value ?? "").replace(/[^0-9.]/g, "");
+  const [whole, ...decimalParts] = cleaned.split(".");
+  const numeric = decimalParts.length > 0 ? `${whole}.${decimalParts.join("")}` : whole;
   return numeric === "" ? "" : numeric;
 }
 
@@ -541,10 +569,195 @@ function formatCurrencyInput(value) {
 
   const [whole, decimal] = numeric.split(".");
   const withCommas = Number(whole || 0).toLocaleString("en-US");
-  if (decimal !== undefined) {
+  if (decimal !== undefined && decimal !== "") {
     return `$${withCommas}.${decimal.slice(0, 2)}`;
   }
   return `$${withCommas}`;
+}
+
+function formatCurrencyValue(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  const rounded = Number(value.toFixed(2));
+  return formatCurrencyInput(Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2));
+}
+
+function parseContributionNumber(value) {
+  const raw = String(value ?? "").trim();
+  const numeric = parseCurrencyInput(raw);
+  if (numeric === "") {
+    return raw === "" ? 0 : Number.NaN;
+  }
+  return Number(numeric);
+}
+
+function formatContributionSplitValue(value, mode) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (mode === "fixed") {
+    return formatCurrencyValue(value);
+  }
+  return formatDecimalValue(value);
+}
+
+function getContributionTotalFromFields(mode) {
+  if (mode === "fixed") {
+    return parseContributionNumber(fixedContributionInput.value);
+  }
+  return parseContributionNumber(savingsRateInput.value);
+}
+
+function getContributionTotalFromPayload(payload, mode) {
+  if (mode === "fixed") {
+    return parseContributionNumber(payload.fixed_annual_contribution);
+  }
+  return parseContributionNumber(payload.savings_rate);
+}
+
+function getContributionSplitValuesFromInputs(mode) {
+  return contributionSplitInputs.map((input) => parseContributionNumber(input.value, mode));
+}
+
+function getContributionSplitValuesFromPayload(payload, mode) {
+  return CONTRIBUTION_SPLIT_FIELDS.map((fieldName) => parseContributionNumber(payload[fieldName], mode));
+}
+
+function setContributionSplitValues(values, mode) {
+  contributionSplitInputs.forEach((input, index) => {
+    input.value = formatContributionSplitValue(values[index], mode);
+  });
+}
+
+function convertContributionSplitValues(fromMode, toMode) {
+  const currentValues = getContributionSplitValuesFromInputs(fromMode);
+  const currentSum = currentValues.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0);
+  const denominator = currentSum > 0 ? currentSum : getContributionTotalFromFields(fromMode);
+  const ratios =
+    Number.isFinite(denominator) && denominator > 0
+      ? currentValues.map((value) => (Number.isFinite(value) ? value / denominator : 0))
+      : DEFAULT_CONTRIBUTION_SPLIT_RATIOS;
+  const nextTotal = getContributionTotalFromFields(toMode);
+  const nextValues =
+    Number.isFinite(nextTotal) && nextTotal > 0 ? ratios.map((ratio) => ratio * nextTotal) : ratios.map(() => 0);
+  setContributionSplitValues(nextValues, toMode);
+}
+
+function syncContributionSplitLabels(mode) {
+  const suffix = mode === "fixed" ? "($ per year)" : "(% of income)";
+  if (contributionSplitLabels.traditional) {
+    contributionSplitLabels.traditional.textContent = `Traditional contribution ${suffix}`;
+  }
+  if (contributionSplitLabels.roth) {
+    contributionSplitLabels.roth.textContent = `Roth contribution ${suffix}`;
+  }
+  if (contributionSplitLabels.brokerage) {
+    contributionSplitLabels.brokerage.textContent = `Brokerage contribution ${suffix}`;
+  }
+  contributionSplitInputs.forEach((input) => {
+    input.inputMode = "decimal";
+    input.value = formatContributionSplitValue(parseContributionNumber(input.value), mode);
+  });
+}
+
+function formatContributionTotalForMessage(value, mode) {
+  if (mode === "fixed") {
+    return formatCurrencyValue(value);
+  }
+  return `${formatDecimalValue(value)}%`;
+}
+
+function getContributionSplitValidation(payload) {
+  const mode = payload.contribution_mode;
+  if (!["percent", "fixed"].includes(mode)) {
+    return null;
+  }
+
+  const total = getContributionTotalFromPayload(payload, mode);
+  const values = getContributionSplitValuesFromPayload(payload, mode);
+  const invalidValue = values.some((value) => !Number.isFinite(value));
+  if (invalidValue) {
+    return {
+      field: "contribution_split",
+      fields: CONTRIBUTION_SPLIT_FIELDS,
+      message: "Traditional, Roth, and brokerage contributions must be valid numbers.",
+    };
+  }
+
+  const negativeValue = values.some((value) => value < 0);
+  if (negativeValue) {
+    return {
+      field: "contribution_split",
+      fields: CONTRIBUTION_SPLIT_FIELDS,
+      message: "Traditional, Roth, and brokerage contributions cannot be negative.",
+    };
+  }
+
+  if (!Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+
+  const contributionSplitTotal = values.reduce((sum, value) => sum + value, 0);
+  if (Math.abs(contributionSplitTotal - total) > CONTRIBUTION_SPLIT_TOLERANCE) {
+    return {
+      field: "contribution_split",
+      fields: CONTRIBUTION_SPLIT_FIELDS,
+      message: `Traditional, Roth, and brokerage contributions must add up to ${formatContributionTotalForMessage(
+        total,
+        mode,
+      )}. Current total is ${formatContributionTotalForMessage(contributionSplitTotal, mode)}.`,
+    };
+  }
+
+  return null;
+}
+
+function setContributionSplitError(message) {
+  contributionSplitInputs.forEach((input) => {
+    input.setAttribute("aria-invalid", "true");
+  });
+  if (contributionSplitErrorEl) {
+    contributionSplitErrorEl.textContent = message;
+    contributionSplitErrorEl.classList.add("active");
+  }
+}
+
+function clearContributionSplitError() {
+  contributionSplitInputs.forEach((input) => {
+    input.setAttribute("aria-invalid", "false");
+  });
+  if (contributionSplitErrorEl) {
+    contributionSplitErrorEl.textContent = "";
+    contributionSplitErrorEl.classList.remove("active");
+  }
+}
+
+function refreshContributionSplitWarning() {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  payload.contribution_mode = form.elements["contribution_mode"].value;
+  payload.savings_rate = savingsRateInput.value || "0";
+  payload.fixed_annual_contribution = fixedContributionInput.value || "0";
+  contributionSplitInputs.forEach((input) => {
+    payload[input.name] = input.value;
+  });
+
+  const contributionSplitError = getContributionSplitValidation(payload);
+  if (contributionSplitError) {
+    setContributionSplitError(contributionSplitError.message);
+    return;
+  }
+  clearContributionSplitError();
+}
+
+function prepareContributionAllocationPayload(payload) {
+  const mode = payload.contribution_mode;
+  const values = getContributionSplitValuesFromPayload(payload, mode);
+  const contributionSplitTotal = values.reduce((sum, value) => sum + value, 0);
+  CONTRIBUTION_SPLIT_FIELDS.forEach((fieldName, index) => {
+    const allocationPct = contributionSplitTotal > 0 ? (values[index] / contributionSplitTotal) * 100 : 0;
+    payload[fieldName] = String(allocationPct);
+  });
 }
 
 function normalizeCurrencyFields(payload) {
@@ -592,6 +805,14 @@ function setFieldError(fieldName, message) {
   }
 }
 
+function displayValidationError(validationError) {
+  if (validationError.field === "contribution_split" || validationError.fields) {
+    setContributionSplitError(validationError.message);
+    return;
+  }
+  setFieldError(validationError.field, validationError.message);
+}
+
 function validateForm(payload) {
   const errors = [];
   const number = (fieldName) => Number(payload[fieldName] ?? 0);
@@ -601,9 +822,6 @@ function validateForm(payload) {
   const mode = payload.contribution_mode;
   const savingsRateValue = number("savings_rate");
   const fixedContributionValue = Number(parseCurrencyInput(payload.fixed_annual_contribution || "0"));
-  const traditionalContributionPct = number("traditional_contribution_pct");
-  const rothContributionPct = number("roth_contribution_pct");
-  const brokerageContributionPct = number("brokerage_contribution_pct");
 
   if (currentAge < 0 || currentAge > 120) {
     errors.push({ field: "current_age", message: "Current age must be between 0 and 120." });
@@ -644,9 +862,6 @@ function validateForm(payload) {
   [
     ["salary_growth_rate", "Salary growth rate must be between 0 and 100."],
     ["savings_rate", "Savings rate must be between 0 and 100."],
-    ["traditional_contribution_pct", "Traditional contribution percent must be between 0 and 100."],
-    ["roth_contribution_pct", "Roth contribution percent must be between 0 and 100."],
-    ["brokerage_contribution_pct", "Brokerage contribution percent must be between 0 and 100."],
     ["inflation_rate", "Inflation rate must be between 0 and 100."],
     ["traditional_return_rate", "Traditional pre-tax return rate must be between 0 and 100."],
     ["roth_return_rate", "Roth pre-tax return rate must be between 0 and 100."],
@@ -666,12 +881,9 @@ function validateForm(payload) {
     errors.push({ field: "desired_swr", message: "Desired SWR must be greater than 0." });
   }
 
-  const contributionAllocationTotal = traditionalContributionPct + rothContributionPct + brokerageContributionPct;
-  if (Math.abs(contributionAllocationTotal - 100) > 0.001) {
-    errors.push({
-      field: "traditional_contribution_pct",
-      message: "Traditional, Roth, and brokerage contribution percentages must sum to 100.",
-    });
+  const contributionSplitError = getContributionSplitValidation(payload);
+  if (contributionSplitError) {
+    errors.push(contributionSplitError);
   }
 
   ["traditional_assets", "roth_assets", "brokerage_assets"].forEach((fieldName) => {
@@ -753,6 +965,30 @@ function applySavedFormValues() {
   }
 }
 
+function migrateLegacyContributionSplitValues() {
+  const mode = form.elements["contribution_mode"].value;
+  const values = getContributionSplitValuesFromInputs("percent");
+  const splitTotal = values.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+  const activeTotal = getContributionTotalFromFields(mode);
+  const looksLikeLegacyAllocation =
+    values.every(Number.isFinite) &&
+    Math.abs(splitTotal - 100) <= CONTRIBUTION_SPLIT_TOLERANCE &&
+    Number.isFinite(activeTotal) &&
+    activeTotal > 0 &&
+    Math.abs(activeTotal - 100) > CONTRIBUTION_SPLIT_TOLERANCE;
+
+  if (!looksLikeLegacyAllocation) {
+    return;
+  }
+
+  setContributionSplitValues(
+    values.map((value) => (value / 100) * activeTotal),
+    mode,
+  );
+  saveFormValues();
+  logDebug("Migrated saved contribution allocation values to contribution split values.");
+}
+
 async function handleSubmit(event) {
   event.preventDefault();
   errorEl.textContent = "";
@@ -767,7 +1003,7 @@ async function handleSubmit(event) {
     clearFieldErrors();
     const validationErrors = validateForm(payload);
     if (validationErrors.length > 0) {
-      validationErrors.forEach((validationError) => setFieldError(validationError.field, validationError.message));
+      validationErrors.forEach(displayValidationError);
       errorEl.textContent = validationErrors[0].message;
       logDebug("Client validation blocked submit.", { validationErrors });
       return;
@@ -777,6 +1013,7 @@ async function handleSubmit(event) {
     const fixedContributionValue = Number(parseCurrencyInput(form.elements["fixed_annual_contribution"].value || "0"));
     payload.savings_rate = mode === "percent" ? form.elements["savings_rate"].value || "0" : "0";
     payload.fixed_annual_contribution = mode === "fixed" ? String(fixedContributionValue) : "0";
+    prepareContributionAllocationPayload(payload);
     payload.enable_monte_carlo = Boolean(form.elements["enable_monte_carlo"]?.checked);
     payload.enable_contribution_escalation = Boolean(form.elements["enable_contribution_escalation"]?.checked);
     payload.enable_glidepath = Boolean(form.elements["enable_glidepath"]?.checked);
@@ -851,10 +1088,12 @@ savingsRateInput = form.elements["savings_rate"];
 fixedContributionInput = form.elements["fixed_annual_contribution"];
 
 applySavedFormValues();
+migrateLegacyContributionSplitValues();
+contributionSplitMode = form.elements["contribution_mode"].value;
 
 form.addEventListener("submit", handleSubmit);
 form.querySelectorAll('input[name="contribution_mode"]').forEach((radio) => {
-  radio.addEventListener("change", syncContributionMode);
+  radio.addEventListener("change", () => syncContributionMode({ preserveSplitRatios: true }));
   radio.addEventListener("change", saveFormValues);
 });
 
@@ -866,6 +1105,31 @@ form.querySelectorAll("input").forEach((input) => {
       inlineError.textContent = "";
       inlineError.classList.remove("active");
     }
+    if (
+      input.matches("[data-contribution-split]") ||
+      input.name === "savings_rate" ||
+      input.name === "fixed_annual_contribution"
+    ) {
+      window.requestAnimationFrame(refreshContributionSplitWarning);
+    }
+    saveFormValues();
+  });
+});
+
+contributionSplitInputs.forEach((input) => {
+  input.addEventListener("input", () => {
+    input.value = parseCurrencyInput(input.value);
+    refreshContributionSplitWarning();
+    saveFormValues();
+  });
+  input.addEventListener("focus", () => {
+    if (contributionSplitMode === "fixed") {
+      input.value = parseCurrencyInput(input.value);
+    }
+  });
+  input.addEventListener("blur", () => {
+    input.value = formatContributionSplitValue(parseContributionNumber(input.value), contributionSplitMode);
+    refreshContributionSplitWarning();
     saveFormValues();
   });
 });
