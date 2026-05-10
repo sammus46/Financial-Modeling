@@ -253,6 +253,54 @@ def _after_tax_value(data: RetirementInputs, traditional_balance: float, roth_ba
     return trad_after_tax + roth_after_tax + brokerage_after_tax
 
 
+def _return_rates_for_projection_year(data: RetirementInputs, year: int, years_to_retirement: int) -> tuple[float, float, float]:
+    if data.enable_glidepath:
+        progress = (year - 1) / max(years_to_retirement, 1)
+        equity_start = _to_decimal(data.glidepath_equity_start)
+        equity_end = _to_decimal(data.glidepath_equity_end)
+        equity_weight = equity_start + (equity_end - equity_start) * progress
+        bond_weight = 1 - equity_weight
+        blended_return = (
+            equity_weight * _to_decimal(data.glidepath_equity_return_rate)
+            + bond_weight * _to_decimal(data.glidepath_bond_return_rate)
+        )
+        return (blended_return, blended_return, blended_return)
+
+    return (
+        _to_decimal(data.traditional_return_rate),
+        _to_decimal(data.roth_return_rate),
+        _to_decimal(data.brokerage_return_rate),
+    )
+
+
+def _unit_after_tax_growth_factor(
+    data: RetirementInputs,
+    weights: tuple[float, float, float],
+    start_year: int,
+    years_to_retirement: int,
+) -> float:
+    unit_trad_start = weights[0]
+    unit_roth_start = weights[1]
+    unit_brokerage_start = weights[2]
+    unit_after_tax_start = _after_tax_value(data, unit_trad_start, unit_roth_start, unit_brokerage_start)
+
+    unit_trad_end = unit_trad_start
+    unit_roth_end = unit_roth_start
+    unit_brokerage_end = unit_brokerage_start
+    for projection_year in range(start_year, years_to_retirement + 1):
+        trad_return, roth_return, brokerage_return = _return_rates_for_projection_year(
+            data,
+            projection_year,
+            years_to_retirement,
+        )
+        unit_trad_end *= 1 + trad_return
+        unit_roth_end *= 1 + roth_return
+        unit_brokerage_end *= 1 + brokerage_return
+
+    unit_after_tax_end = _after_tax_value(data, unit_trad_end, unit_roth_end, unit_brokerage_end)
+    return (unit_after_tax_end / unit_after_tax_start) if unit_after_tax_start > 0 else 1.0
+
+
 def parse_inputs(payload: dict) -> RetirementInputs:
     _require_keys(
         payload,
@@ -582,23 +630,7 @@ def run_projection(data: RetirementInputs, extra_fixed_contribution: float = 0.0
         roth_contrib = total_contribution * contribution_weights[1]
         brokerage_contrib = total_contribution * contribution_weights[2]
 
-        if data.enable_glidepath:
-            progress = (i - 1) / max(years_to_retirement, 1)
-            equity_start = _to_decimal(data.glidepath_equity_start)
-            equity_end = _to_decimal(data.glidepath_equity_end)
-            equity_weight = equity_start + (equity_end - equity_start) * progress
-            bond_weight = 1 - equity_weight
-            blended_return = (
-                equity_weight * _to_decimal(data.glidepath_equity_return_rate)
-                + bond_weight * _to_decimal(data.glidepath_bond_return_rate)
-            )
-            trad_return = blended_return
-            roth_return = blended_return
-            brokerage_return = blended_return
-        else:
-            trad_return = _to_decimal(data.traditional_return_rate)
-            roth_return = _to_decimal(data.roth_return_rate)
-            brokerage_return = _to_decimal(data.brokerage_return_rate)
+        trad_return, roth_return, brokerage_return = _return_rates_for_projection_year(data, i, years_to_retirement)
 
         trad_balance = trad_balance * (1 + trad_return) + trad_contrib
         roth_balance = roth_balance * (1 + roth_return) + roth_contrib
@@ -707,35 +739,14 @@ def calculate_projection(data: RetirementInputs) -> dict:
     )
 
     goal_line = [target_nest_egg for _ in projection["ages"]]
-    trad_return = _to_decimal(data.traditional_return_rate)
-    roth_return = _to_decimal(data.roth_return_rate)
-    brokerage_return = _to_decimal(data.brokerage_return_rate)
-
     dynamic_goal_line = []
     total_years = len(projection["ages"]) - 1
     for index in range(len(projection["ages"])):
-        years_remaining = total_years - index
         trad_balance_now = projection["traditional_balances"][index]
         roth_balance_now = projection["roth_balances"][index]
         brokerage_balance_now = projection["brokerage_balances"][index]
         weights = _safe_allocation_weights(trad_balance_now, roth_balance_now, brokerage_balance_now)
-
-        initial_unit_total = 1.0
-        unit_trad_start = initial_unit_total * weights[0]
-        unit_roth_start = initial_unit_total * weights[1]
-        unit_brokerage_start = initial_unit_total * weights[2]
-        unit_after_tax_start = _after_tax_value(data, unit_trad_start, unit_roth_start, unit_brokerage_start)
-
-        unit_trad_end = unit_trad_start * ((1 + trad_return) ** years_remaining)
-        unit_roth_end = unit_roth_start * ((1 + roth_return) ** years_remaining)
-        unit_brokerage_end = unit_brokerage_start * ((1 + brokerage_return) ** years_remaining)
-        unit_after_tax_end = _after_tax_value(data, unit_trad_end, unit_roth_end, unit_brokerage_end)
-
-        growth_factor = (
-            (unit_after_tax_end / unit_after_tax_start)
-            if unit_after_tax_start > 0
-            else 1.0
-        )
+        growth_factor = _unit_after_tax_growth_factor(data, weights, index + 1, total_years)
         required_after_tax_now = target_nest_egg / growth_factor if growth_factor > 0 else target_nest_egg
         dynamic_goal_line.append(required_after_tax_now)
 
@@ -844,9 +855,10 @@ def run_monte_carlo(data: RetirementInputs, target_nest_egg: float) -> dict:
         )
         for year in range(1, years_to_retirement + 1):
             sampled_inflation = max(-0.05, rng.gauss(_to_decimal(data.inflation_rate), inflation_stddev))
-            sampled_trad = max(-0.95, rng.gauss(_to_decimal(data.traditional_return_rate), return_stddev))
-            sampled_roth = max(-0.95, rng.gauss(_to_decimal(data.roth_return_rate), return_stddev))
-            sampled_brokerage = max(-0.95, rng.gauss(_to_decimal(data.brokerage_return_rate), return_stddev))
+            trad_return, roth_return, brokerage_return = _return_rates_for_projection_year(data, year, years_to_retirement)
+            sampled_trad = max(-0.95, rng.gauss(trad_return, return_stddev))
+            sampled_roth = max(-0.95, rng.gauss(roth_return, return_stddev))
+            sampled_brokerage = max(-0.95, rng.gauss(brokerage_return, return_stddev))
             percent_contribution = (income * savings_rate) if data.contribution_mode == "percent" else 0.0
             fixed_contribution = data.fixed_annual_contribution if data.contribution_mode == "fixed" else 0.0
             if data.enable_contribution_escalation:

@@ -223,20 +223,24 @@ body.dashboard-page {
 }
 
 .form-section summary h2::before {
-  content: "";
+  content: ">";
   position: absolute;
   top: 50%;
-  right: 0.9rem;
+  right: 0;
   z-index: 1;
-  width: 0.54rem;
-  height: 0.54rem;
-  border: solid var(--muted-text);
-  border-width: 0 2.5px 2.5px 0;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--muted-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
   pointer-events: none;
-  transform: translateY(-62%) rotate(45deg);
+  transform: translateY(-50%) rotate(90deg);
   transform-origin: center;
   transition:
-    border-color 160ms ease,
+    color 160ms ease,
     transform 160ms ease;
 }
 
@@ -254,18 +258,17 @@ body.dashboard-page {
 
 .form-section summary:hover h2::before,
 .form-section summary:focus-visible h2::before {
-  border-color: var(--focus);
+  color: var(--focus);
 }
 
 .retirement-page .form-section summary h2::before {
-  right: 0.93rem;
-  width: 0.58rem;
-  height: 0.58rem;
-  border-width: 0 2.75px 2.75px 0;
+  width: 2.45rem;
+  height: 2.45rem;
+  font-size: 1.05rem;
 }
 
 .form-section:not([open]) summary h2::before {
-  transform: translateY(-50%) rotate(-45deg);
+  transform: translateY(-50%);
 }
 
 .section-body {

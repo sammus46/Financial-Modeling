@@ -196,26 +196,38 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
   const theme = getChartTheme();
   const selectedGoalLine = selectedGoalMode === "dynamic" ? dynamicGoalLine : goalLine;
   const goalSeriesLabel = selectedGoalMode === "dynamic" ? "Dynamic Goal" : "Retirement Goal";
-  const usingProbability = selectedChartMode === "probability" && monteCarlo?.path_percentiles;
-  const probabilityP10 = usingProbability ? monteCarlo.path_percentiles.p10 : [];
-  const probabilityP50 = usingProbability ? monteCarlo.path_percentiles.p50 : [];
-  const probabilityP90 = usingProbability ? monteCarlo.path_percentiles.p90 : [];
+  const probabilityPaths = monteCarlo?.path_percentiles || {};
+  const hasProbabilityData = [probabilityPaths.p10, probabilityPaths.p50, probabilityPaths.p90].every(
+    (series) => Array.isArray(series) && series.length === ages.length,
+  );
+  const activeChartMode = selectedChartMode === "probability" && !hasProbabilityData ? "balance" : selectedChartMode;
+  const usingProbability = activeChartMode === "probability";
+  const probabilityP10 = usingProbability ? probabilityPaths.p10 : [];
+  const probabilityP50 = usingProbability ? probabilityPaths.p50 : [];
+  const probabilityP90 = usingProbability ? probabilityPaths.p90 : [];
   const chartSeries =
-    selectedChartMode === "gap"
+    activeChartMode === "gap"
       ? postTaxBalances.map((value, index) => value - selectedGoalLine[index])
-      : selectedChartMode === "progress"
+      : activeChartMode === "progress"
         ? postTaxBalances.map((value, index) => (selectedGoalLine[index] > 0 ? (value / selectedGoalLine[index]) * 100 : 0))
         : usingProbability
           ? probabilityP50
         : postTaxBalances;
   const benchmarkSeries =
-    selectedChartMode === "gap"
+    activeChartMode === "gap"
       ? selectedGoalLine.map(() => 0)
-      : selectedChartMode === "progress"
+      : activeChartMode === "progress"
         ? selectedGoalLine.map(() => 100)
         : selectedGoalLine;
   const gapSeries = chartSeries.map((value, index) => value - (benchmarkSeries[index] ?? 0));
-  const crossoverIndexes = gapSeries.reduce((indexes, value, index) => {
+  const zeroTolerance = activeChartMode === "progress" ? 0.01 : 1;
+  const normalizedGapSeries = gapSeries.map((value) => {
+    if (!Number.isFinite(value)) {
+      return value;
+    }
+    return Math.abs(value) <= zeroTolerance ? 0 : value;
+  });
+  const crossoverIndexes = normalizedGapSeries.reduce((indexes, value, index) => {
     if (!Number.isFinite(value)) {
       return indexes;
     }
@@ -229,7 +241,7 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
       return indexes;
     }
 
-    const previous = gapSeries[index - 1];
+    const previous = normalizedGapSeries[index - 1];
     if (!Number.isFinite(previous) || previous === 0) {
       return indexes;
     }
@@ -241,17 +253,17 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
     return indexes;
   }, []);
   const chartLabel =
-    selectedChartMode === "gap"
+    activeChartMode === "gap"
       ? "Gap vs Retirement Goal"
-      : selectedChartMode === "progress"
+      : activeChartMode === "progress"
         ? "Goal Progress"
-        : selectedChartMode === "probability"
+        : activeChartMode === "probability"
           ? "Monte Carlo Median Path"
         : "Portfolio Value (Post-Tax)";
   const yTickFormatter =
-    selectedChartMode === "gap"
+    activeChartMode === "gap"
       ? (value) => `${value >= 0 ? "+" : "-"}${currency(Math.abs(value))}`
-      : selectedChartMode === "progress"
+      : activeChartMode === "progress"
         ? (value) => `${Number(value).toFixed(0)}%`
         : (value) => currency(value);
   const ctx = chartEl.getContext("2d");
@@ -379,15 +391,15 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
           callbacks: {
             label: (context) => {
               if (context.dataset.label === "Crossover Point") {
-                return ` Crossover at ${selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)}`;
+                return ` Crossover at ${activeChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)}`;
               }
 
-              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(selectedChartMode) && context.dataset.label === goalSeriesLabel) {
+              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(activeChartMode) && context.dataset.label === goalSeriesLabel) {
                 return ` Dynamic goal: ${currency(selectedGoalLine[context.dataIndex] || 0)}`;
               }
 
               return ` ${context.dataset.label}: ${
-                selectedChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)
+                activeChartMode === "progress" ? `${Number(context.parsed.y).toFixed(1)}%` : currency(context.parsed.y)
               }`;
             },
             afterLabel: (context) => {
@@ -395,11 +407,11 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
                 return " Actual and goal are equal at this point.";
               }
 
-              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(selectedChartMode) && context.dataset.label === goalSeriesLabel) {
+              if (selectedGoalMode === "dynamic" && ["gap", "progress"].includes(activeChartMode) && context.dataset.label === goalSeriesLabel) {
                 return "";
               }
 
-              if (selectedChartMode === "progress") {
+              if (activeChartMode === "progress") {
                 if (context.dataset.label === goalSeriesLabel) {
                   return " Target reference line (100%).";
                 }
@@ -407,7 +419,7 @@ function renderChart(ages, postTaxBalances, goalLine, dynamicGoalLine, monteCarl
                 const direction = progressDelta >= 0 ? "Above" : "Below";
                 return ` ${direction} target by ${Math.abs(progressDelta).toFixed(1)}%`;
               }
-              if (selectedChartMode === "gap") {
+              if (activeChartMode === "gap") {
                 if (context.dataset.label === goalSeriesLabel) {
                   return " Goal reference line ($0 gap).";
                 }
