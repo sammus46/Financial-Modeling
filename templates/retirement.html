@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
-  <body>
+  <body class="retirement-page">
     <nav class="tool-nav" aria-label="Tool navigation">
       <a class="tool-nav-link" href="{{ url_for('index') }}">← Back to Dashboard</a>
       <a class="tool-nav-link tool-nav-link-active" href="{{ url_for('retirement_app') }}" aria-current="page">Retirement Planner</a>

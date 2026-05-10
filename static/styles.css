@@ -233,6 +233,13 @@ body.dashboard-page {
   color: var(--focus);
 }
 
+.retirement-page .form-section summary h2::after {
+  width: 2.9rem;
+  height: 2.9rem;
+  border-width: 2px;
+  font-size: 2.45rem;
+}
+
 .form-section:not([open]) summary h2::after {
   transform: rotate(0deg);
 }
