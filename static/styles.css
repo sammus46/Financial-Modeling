@@ -264,9 +264,58 @@ label input {
   background: transparent;
 }
 
-.contribution-mode[data-mode="percent"] .radio:first-of-type,
-.contribution-mode[data-mode="fixed"] .radio:last-of-type {
-  color: #2563eb;
+.contribution-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--input-disabled-bg) 70%, transparent);
+}
+
+.contribution-toggle-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 7rem;
+  padding: 0.38rem 0.8rem;
+  border-radius: 999px;
+  color: var(--muted-text);
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.contribution-toggle-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.contribution-mode[data-mode="percent"] .contribution-toggle-option[data-mode-option="percent"],
+.contribution-mode[data-mode="fixed"] .contribution-toggle-option[data-mode-option="fixed"] {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22);
+}
+
+.contribution-toggle-option:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.contribution-input-panel {
+  display: block;
+}
+
+.contribution-input-panel[hidden] {
+  display: none;
 }
 
 .radio {

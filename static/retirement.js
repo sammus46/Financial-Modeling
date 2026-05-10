@@ -519,6 +519,12 @@ function syncContributionMode() {
   const contributionModeFieldset = form.querySelector(".contribution-mode");
   if (contributionModeFieldset) {
     contributionModeFieldset.dataset.mode = mode;
+    contributionModeFieldset.querySelectorAll(".contribution-input-panel").forEach((panel) => {
+      const panelMode = panel.dataset.contributionPanel;
+      const isActivePanel = panelMode === mode;
+      panel.hidden = !isActivePanel;
+      panel.setAttribute("aria-hidden", String(!isActivePanel));
+    });
   }
 }
 
