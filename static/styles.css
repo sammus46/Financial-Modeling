@@ -193,6 +193,7 @@ body.dashboard-page {
 }
 
 .form-section h2 {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -204,7 +205,7 @@ body.dashboard-page {
 }
 
 .form-section summary h2::after {
-  content: "›";
+  content: "";
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -214,15 +215,26 @@ body.dashboard-page {
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   background: color-mix(in oklab, var(--card-bg) 86%, var(--border-soft));
-  color: var(--muted-text);
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1;
-  transform: rotate(90deg);
   transition:
     background 160ms ease,
+    border-color 160ms ease;
+}
+
+.form-section summary h2::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  z-index: 1;
+  width: 0.54rem;
+  height: 0.54rem;
+  border: solid var(--muted-text);
+  border-width: 0 2.5px 2.5px 0;
+  pointer-events: none;
+  transform: translateY(-62%) rotate(45deg);
+  transform-origin: center;
+  transition:
     border-color 160ms ease,
-    color 160ms ease,
     transform 160ms ease;
 }
 
@@ -230,18 +242,28 @@ body.dashboard-page {
 .form-section summary:focus-visible h2::after {
   background: color-mix(in oklab, var(--focus) 14%, var(--card-bg));
   border-color: var(--focus);
-  color: var(--focus);
 }
 
 .retirement-page .form-section summary h2::after {
-  width: 2.9rem;
-  height: 2.9rem;
-  border-width: 2px;
-  font-size: 2.45rem;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-width: 1.5px;
 }
 
-.form-section:not([open]) summary h2::after {
-  transform: rotate(0deg);
+.form-section summary:hover h2::before,
+.form-section summary:focus-visible h2::before {
+  border-color: var(--focus);
+}
+
+.retirement-page .form-section summary h2::before {
+  right: 0.93rem;
+  width: 0.58rem;
+  height: 0.58rem;
+  border-width: 0 2.75px 2.75px 0;
+}
+
+.form-section:not([open]) summary h2::before {
+  transform: translateY(-50%) rotate(-45deg);
 }
 
 .section-body {
