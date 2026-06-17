@@ -8,11 +8,38 @@ A Flask + vanilla JS financial modeling suite with multiple tools:
 
 ## Run locally
 
+### macOS/Linux command line
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
+```
+
+### Windows Command Prompt
+
+```cmd
+py -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+python app.py
+```
+
+### Windows PowerShell
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python app.py
+```
+
+If PowerShell blocks the activation script, allow scripts for the current session and then activate again:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\.venv\Scripts\Activate.ps1
 ```
 
 Open `http://127.0.0.1:5000`.
