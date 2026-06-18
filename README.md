@@ -8,28 +8,31 @@ A Flask + vanilla JS financial modeling suite with multiple tools:
 
 ## Run locally
 
-### macOS/Linux command line
+Use the command set for your terminal. The `source .venv/bin/activate` command only works in macOS/Linux shells such as Bash; it will fail in Windows Command Prompt.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
+### Windows Command Prompt (`cmd.exe`)
 
-### Windows Command Prompt
+From the project folder, run:
 
 ```cmd
-py -m venv .venv
+python -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install -r requirements.txt
 python app.py
 ```
 
+After activation, your prompt should start with `(.venv)`. Open `http://127.0.0.1:5000` in your browser.
+
+If your Windows installation uses the Python Launcher instead of `python`, replace the first command with:
+
+```cmd
+py -m venv .venv
+```
+
 ### Windows PowerShell
 
 ```powershell
-py -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python app.py
@@ -40,6 +43,15 @@ If PowerShell blocks the activation script, allow scripts for the current sessio
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 .\.venv\Scripts\Activate.ps1
+```
+
+### macOS/Linux command line
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
 ```
 
 Open `http://127.0.0.1:5000`.
