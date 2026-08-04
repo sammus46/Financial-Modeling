@@ -20,8 +20,24 @@ function saveGoals() {
   localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
 }
 
-function formatAmount(value) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+function formatAmount(value, options = {}) {
+  const fractionDigits = Number.isInteger(Number(value)) ? 0 : 2;
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: options.keepCents ? fractionDigits : 0,
+    maximumFractionDigits: options.keepCents ? 2 : 0,
+  }).format(value || 0);
+}
+
+function parseCurrency(value) {
+  const normalized = String(value || "").replace(/[$,\s]/g, "");
+  return Number(normalized);
+}
+
+function formatCurrencyInput(input) {
+  const amount = parseCurrency(input.value);
+  input.value = Number.isFinite(amount) && amount >= 0 ? formatAmount(amount, { keepCents: true }) : "";
 }
 
 function progressFor(goal) {
@@ -72,8 +88,8 @@ function editGoal(id) {
   editingId = id;
   document.getElementById("goal-name").value = goal.name;
   document.getElementById("goal-category").value = goal.category;
-  document.getElementById("goal-current").value = goal.current;
-  document.getElementById("goal-target").value = goal.target;
+  document.getElementById("goal-current").value = formatAmount(goal.current, { keepCents: true });
+  document.getElementById("goal-target").value = formatAmount(goal.target, { keepCents: true });
   document.getElementById("goal-form-title").textContent = "Update goal";
   document.getElementById("goal-cancel").hidden = false;
   form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -92,8 +108,8 @@ form.addEventListener("submit", (event) => {
     id: editingId || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
     name: document.getElementById("goal-name").value.trim(),
     category: document.getElementById("goal-category").value,
-    current: Number(document.getElementById("goal-current").value),
-    target: Number(document.getElementById("goal-target").value),
+    current: parseCurrency(document.getElementById("goal-current").value),
+    target: parseCurrency(document.getElementById("goal-target").value),
   };
   if (!goal.name || !Number.isFinite(goal.current) || !Number.isFinite(goal.target) || goal.current < 0 || goal.target <= 0) return;
   goals = editingId ? goals.map((item) => item.id === editingId ? goal : item) : [goal, ...goals];
@@ -103,6 +119,11 @@ form.addEventListener("submit", (event) => {
 });
 
 document.getElementById("goal-cancel").addEventListener("click", resetForm);
+["goal-current", "goal-target"].forEach((id) => {
+  const input = document.getElementById(id);
+  input.addEventListener("focus", () => { input.value = String(parseCurrency(input.value) || ""); });
+  input.addEventListener("blur", () => formatCurrencyInput(input));
+});
 
 function applyTheme(mode) {
   const dark = mode === "dark";

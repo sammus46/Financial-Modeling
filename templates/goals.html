@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
   </head>
   <body class="dashboard-page goals-page">
+    <nav class="tool-nav" aria-label="Tool navigation">
+      <a class="tool-nav-link" href="{{ url_for('index') }}">← Back to Dashboard</a>
+      <a class="tool-nav-link" href="{{ url_for('retirement_app') }}">Retirement Planner</a>
+      <a class="tool-nav-link" href="{{ url_for('emergency_fund_app') }}">Emergency Fund</a>
+      <a class="tool-nav-link" href="{{ url_for('debt_tracker_app') }}">Debt Tracker</a>
+      <a class="tool-nav-link" href="{{ url_for('net_worth_tracker_app') }}">Net Worth Tracker</a>
+      <a class="tool-nav-link tool-nav-link-active" href="{{ url_for('goals_app') }}" aria-current="page">Goal Progress</a>
+    </nav>
     <main class="dashboard-layout">
       <header class="dashboard-toolbar dashboard-card">
         <div>
@@ -14,10 +22,6 @@
           <h1 class="dashboard-title">Goal Progress</h1>
         </div>
         <div class="dashboard-toolbar-actions">
-          <nav class="dashboard-tabs" aria-label="Main navigation">
-            <a class="dashboard-tab" href="{{ url_for('index') }}">Dashboard</a>
-            <a class="dashboard-tab is-active" href="{{ url_for('goals_app') }}" aria-current="page">Goal progress</a>
-          </nav>
           <button id="dashboard-theme-toggle" type="button" class="dashboard-theme-toggle" aria-pressed="false">Dark mode</button>
         </div>
       </header>
@@ -50,8 +54,8 @@
             </select>
           </label>
           <div class="goal-number-grid">
-            <label>Current amount <input id="goal-current" type="number" min="0" step="0.01" placeholder="25000" required /></label>
-            <label>Target amount <input id="goal-target" type="number" min="0.01" step="0.01" placeholder="100000" required /></label>
+            <label>Current amount <input id="goal-current" type="text" inputmode="decimal" placeholder="$25,000" autocomplete="off" required /></label>
+            <label>Target amount <input id="goal-target" type="text" inputmode="decimal" placeholder="$100,000" autocomplete="off" required /></label>
           </div>
           <button class="goal-primary-button" type="submit">Save goal</button>
         </form>
