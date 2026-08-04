@@ -31,14 +31,32 @@
           <h2>Your milestones at a glance</h2>
           <p class="subtitle">Add as many goals as you need. Progress is saved in this browser automatically.</p>
         </div>
-        <div class="goals-summary" aria-live="polite">
-          <strong id="goals-average">0%</strong>
-          <span>average progress</span>
+        <div class="goals-summary-grid" aria-live="polite">
+          <div class="goals-summary-item goals-summary-primary">
+            <span>Average progress</span>
+            <strong id="goals-average">0%</strong>
+          </div>
+          <div class="goals-summary-item">
+            <span>Total saved</span>
+            <strong id="goals-total-current">$0</strong>
+          </div>
+          <div class="goals-summary-item">
+            <span>Total target</span>
+            <strong id="goals-total-target">$0</strong>
+          </div>
+          <div class="goals-summary-item">
+            <span>Remaining gap</span>
+            <strong id="goals-remaining-gap">$0</strong>
+          </div>
+          <div class="goals-summary-item">
+            <span>Completed</span>
+            <strong id="goals-completed-count">0</strong>
+          </div>
         </div>
       </section>
 
       <section class="goals-workspace">
-        <form id="goal-form" class="goal-form dashboard-card">
+        <form id="goal-form" class="goal-form dashboard-card" novalidate>
           <div class="goal-form-heading">
             <div>
               <p class="dashboard-kicker">New milestone</p>
@@ -57,6 +75,7 @@
             <label>Current amount <input id="goal-current" type="text" inputmode="decimal" placeholder="$25,000" autocomplete="off" required /></label>
             <label>Target amount <input id="goal-target" type="text" inputmode="decimal" placeholder="$100,000" autocomplete="off" required /></label>
           </div>
+          <p id="goal-form-message" class="goal-form-message" role="alert" hidden></p>
           <button class="goal-primary-button" type="submit">Save goal</button>
         </form>
 

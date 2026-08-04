@@ -4,6 +4,7 @@ const form = document.getElementById("goal-form");
 const list = document.getElementById("goals-list");
 const emptyState = document.getElementById("goals-empty");
 const themeToggle = document.getElementById("dashboard-theme-toggle");
+const formMessage = document.getElementById("goal-form-message");
 let goals = loadGoals();
 let editingId = null;
 
@@ -87,34 +88,85 @@ function formatCurrencyInput(input) {
 }
 
 function progressFor(goal) {
+  if (!Number.isFinite(goal.target) || goal.target <= 0) return 0;
   return Math.max(0, Math.min(100, (goal.current / goal.target) * 100));
+}
+
+function statusFor(goal) {
+  const progress = progressFor(goal);
+  if (progress >= 100) return { label: "Complete", className: "goal-status-complete" };
+  if (progress >= 75) return { label: "Almost there", className: "goal-status-almost-there" };
+  if (goal.current > 0) return { label: "In progress", className: "goal-status-in-progress" };
+  return { label: "Not started", className: "goal-status-not-started" };
+}
+
+function summaryFor(items) {
+  const totalCurrent = items.reduce((sum, goal) => sum + goal.current, 0);
+  const totalTarget = items.reduce((sum, goal) => sum + goal.target, 0);
+  const averageProgress = items.length ? items.reduce((sum, goal) => sum + progressFor(goal), 0) / items.length : 0;
+  const completedCount = items.filter((goal) => progressFor(goal) >= 100).length;
+  return {
+    averageProgress,
+    totalCurrent,
+    totalTarget,
+    remainingGap: Math.max(totalTarget - totalCurrent, 0),
+    completedCount,
+  };
+}
+
+function setFormMessage(message) {
+  formMessage.textContent = message;
+  formMessage.hidden = false;
+}
+
+function clearFormMessage() {
+  formMessage.textContent = "";
+  formMessage.hidden = true;
 }
 
 function renderGoals() {
   list.replaceChildren();
   emptyState.hidden = goals.length > 0;
   document.getElementById("goal-count").textContent = `${goals.length} ${goals.length === 1 ? "goal" : "goals"}`;
-  const average = goals.length ? goals.reduce((sum, goal) => sum + progressFor(goal), 0) / goals.length : 0;
-  document.getElementById("goals-average").textContent = `${Math.round(average)}%`;
+  const summary = summaryFor(goals);
+  document.getElementById("goals-average").textContent = `${Math.round(summary.averageProgress)}%`;
+  document.getElementById("goals-total-current").textContent = formatAmount(summary.totalCurrent);
+  document.getElementById("goals-total-target").textContent = formatAmount(summary.totalTarget);
+  document.getElementById("goals-remaining-gap").textContent = formatAmount(summary.remainingGap);
+  document.getElementById("goals-completed-count").textContent = `${summary.completedCount} of ${goals.length}`;
 
   goals.forEach((goal) => {
     const progress = progressFor(goal);
+    const status = statusFor(goal);
+    const remaining = Math.max(goal.target - goal.current, 0);
     const card = document.createElement("article");
     card.className = "goal-card dashboard-card";
     card.innerHTML = `
       <div class="goal-card-top">
-        <div><span class="goal-category"></span><h3></h3></div>
+        <div>
+          <div class="goal-badge-row">
+            <span class="goal-category"></span>
+            <span class="goal-status"></span>
+          </div>
+          <h3></h3>
+        </div>
         <strong class="goal-percentage">${Math.round(progress)}%</strong>
       </div>
       <div class="goal-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress)}">
         <span style="width: ${progress}%"></span>
       </div>
       <div class="goal-card-footer">
-        <p><strong>${formatAmount(goal.current)}</strong> <span>of ${formatAmount(goal.target)}</span></p>
+        <dl class="goal-card-metrics">
+          <div><dt>Saved</dt><dd>${formatAmount(goal.current)}</dd></div>
+          <div><dt>Target</dt><dd>${formatAmount(goal.target)}</dd></div>
+          <div><dt>Remaining</dt><dd>${formatAmount(remaining)}</dd></div>
+        </dl>
         <div><button type="button" data-action="edit">Edit</button><button type="button" data-action="delete">Delete</button></div>
       </div>`;
     card.querySelector("h3").textContent = goal.name;
     card.querySelector(".goal-category").textContent = goal.category;
+    card.querySelector(".goal-status").textContent = status.label;
+    card.querySelector(".goal-status").classList.add(status.className);
     card.querySelector('[data-action="edit"]').addEventListener("click", () => editGoal(goal.id));
     card.querySelector('[data-action="delete"]').addEventListener("click", () => deleteGoal(goal.id));
     list.append(card);
@@ -124,6 +176,7 @@ function renderGoals() {
 function resetForm() {
   editingId = null;
   form.reset();
+  clearFormMessage();
   document.getElementById("goal-form-title").textContent = "Add a goal";
   document.getElementById("goal-cancel").hidden = true;
 }
@@ -157,7 +210,18 @@ form.addEventListener("submit", (event) => {
     current: parseCurrency(document.getElementById("goal-current").value),
     target: parseCurrency(document.getElementById("goal-target").value),
   };
-  if (!goal.name || !Number.isFinite(goal.current) || !Number.isFinite(goal.target) || goal.current < 0 || goal.target <= 0) return;
+  if (!goal.name) {
+    setFormMessage("Enter a goal name before saving.");
+    return;
+  }
+  if (!Number.isFinite(goal.current) || goal.current < 0) {
+    setFormMessage("Enter a current amount of $0 or more.");
+    return;
+  }
+  if (!Number.isFinite(goal.target) || goal.target <= 0) {
+    setFormMessage("Enter a target amount greater than $0.");
+    return;
+  }
   goals = editingId ? goals.map((item) => item.id === editingId ? goal : item) : [goal, ...goals];
   saveGoals();
   resetForm();
@@ -170,6 +234,9 @@ document.getElementById("goal-cancel").addEventListener("click", resetForm);
   input.addEventListener("input", () => formatCurrencyInputWhileTyping(input));
   input.addEventListener("focus", () => formatCurrencyInputWhileTyping(input));
   input.addEventListener("blur", () => formatCurrencyInput(input));
+});
+["goal-name", "goal-category", "goal-current", "goal-target"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", clearFormMessage);
 });
 
 function applyTheme(mode) {
