@@ -156,6 +156,7 @@ def _static_version() -> str:
         "dashboard.js",
         "debt_tracker.js",
         "net_worth_tracker.js",
+        "goals.js",
     ]
     digest = hashlib.sha256()
     for filename in tracked:
@@ -1095,6 +1096,11 @@ def calculate_debt_paydown(debts: list[DebtItem], monthly_budget: float, strateg
 def index() -> str:
     rendered = render_template("index.html")
     return _dedupe_header_block(rendered)
+
+
+@app.route("/apps/goals", methods=["GET"])
+def goals_app() -> str:
+    return render_template("goals.html")
 
 
 @app.route("/apps/retirement", methods=["GET"])

@@ -14,6 +14,10 @@
           <h1 class="dashboard-title">Financial Modeling App Suite</h1>
         </div>
         <div class="dashboard-toolbar-actions">
+          <nav class="dashboard-tabs" aria-label="Main navigation">
+            <a class="dashboard-tab is-active" href="{{ url_for('index') }}" aria-current="page">Dashboard</a>
+            <a class="dashboard-tab" href="{{ url_for('goals_app') }}">Goal progress</a>
+          </nav>
           <button id="dashboard-theme-toggle" type="button" class="dashboard-theme-toggle" aria-pressed="false">Dark mode</button>
         </div>
       </header>
@@ -30,8 +34,8 @@
         <div class="dashboard-kpi-grid">
           <article class="dashboard-kpi-card dashboard-card">
             <p class="dashboard-kpi-label">Available Tools</p>
-            <p class="dashboard-kpi-value">4</p>
-            <p class="dashboard-kpi-delta dashboard-kpi-delta-neutral">Retirement · Emergency Fund · Debt Tracker · Net Worth Tracker</p>
+            <p class="dashboard-kpi-value">5</p>
+            <p class="dashboard-kpi-delta dashboard-kpi-delta-neutral">Four calculators plus persistent goal tracking</p>
           </article>
           <article class="dashboard-kpi-card dashboard-card">
             <p class="dashboard-kpi-label">Planning Coverage</p>
@@ -56,6 +60,15 @@
             <p>Model portfolio growth, retirement targets, withdrawal rates, and goal progress over time.</p>
             <a class="app-link app-launch-btn" href="{{ url_for('retirement_app') }}">
               <span>Open Retirement Planner</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+
+          <article class="app-card dashboard-card">
+            <h2>Goal Progress Tracker</h2>
+            <p>Keep a quick, persistent view of retirement, Coast FIRE, savings, and other financial milestones.</p>
+            <a class="app-link app-launch-btn" href="{{ url_for('goals_app') }}">
+              <span>Open Goal Tracker</span>
               <span aria-hidden="true">→</span>
             </a>
           </article>
