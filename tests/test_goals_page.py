@@ -12,7 +12,14 @@ class GoalsPageTests(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn('id="goal-form"', html)
+        self.assertIn("novalidate", html)
         self.assertIn('id="goals-list"', html)
+        self.assertIn('id="goals-total-current"', html)
+        self.assertIn('id="goals-total-target"', html)
+        self.assertIn('id="goals-remaining-gap"', html)
+        self.assertIn('id="goals-completed-count"', html)
+        self.assertIn('id="goal-form-message"', html)
+        self.assertIn('role="alert"', html)
         self.assertIn('inputmode="decimal" placeholder="$25,000"', html)
         self.assertIn('inputmode="decimal" placeholder="$100,000"', html)
         self.assertIn("goals.js?v=", html)
@@ -56,3 +63,13 @@ class GoalsPageTests(unittest.TestCase):
         self.assertIn("formatCurrencyInputWhileTyping", goals_js)
         self.assertIn('input.addEventListener("input"', goals_js)
         self.assertNotIn("String(parseCurrency(input.value) || \"\")", goals_js)
+
+    def test_goal_cards_include_status_and_remaining_gap_ui(self):
+        goals_js = Path("static/goals.js").read_text(encoding="utf-8")
+
+        self.assertIn("statusFor(goal)", goals_js)
+        for label in ["Not started", "In progress", "Almost there", "Complete"]:
+            self.assertIn(label, goals_js)
+        self.assertIn("goal-card-metrics", goals_js)
+        self.assertIn("<dt>Remaining</dt>", goals_js)
+        self.assertIn("goals-remaining-gap", goals_js)
