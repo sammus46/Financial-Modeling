@@ -46,6 +46,11 @@ def run() -> None:
         dashboard_html = dashboard_response.get_data(as_text=True)
         assert_ok("styles.css?v=" in dashboard_html, "dashboard should include cache-busted styles.css")
 
+        goals_page = client.get("/apps/goals")
+        assert_ok(goals_page.status_code == 200, "GET /apps/goals should return 200")
+        goals_html = goals_page.get_data(as_text=True)
+        assert_ok("goals.js?v=" in goals_html, "goals page should include cache-busted goals.js")
+
         retirement_page = client.get("/apps/retirement")
         assert_ok(retirement_page.status_code == 200, "GET /apps/retirement should return 200")
         retirement_html = retirement_page.get_data(as_text=True)

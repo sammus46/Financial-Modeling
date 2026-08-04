@@ -13,6 +13,7 @@ def test_static_version_changes_when_tracked_asset_content_changes(tmp_path, mon
         "dashboard.js": "console.log('dashboard');",
         "debt_tracker.js": "console.log('debt');",
         "net_worth_tracker.js": "console.log('net-worth-v1');",
+        "goals.js": "console.log('goals');",
     }
 
     for filename, content in tracked_assets.items():
