@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from app import app
 
@@ -48,3 +49,10 @@ class GoalsPageTests(unittest.TestCase):
                     self.assertIn('class="tool-nav"', html)
                     for link in expected_links:
                         self.assertIn(link, html)
+
+    def test_goal_currency_inputs_format_while_typing(self):
+        goals_js = Path("static/goals.js").read_text(encoding="utf-8")
+
+        self.assertIn("formatCurrencyInputWhileTyping", goals_js)
+        self.assertIn('input.addEventListener("input"', goals_js)
+        self.assertNotIn("String(parseCurrency(input.value) || \"\")", goals_js)

@@ -30,9 +30,55 @@ function formatAmount(value, options = {}) {
   }).format(value || 0);
 }
 
+function normalizeCurrencyValue(value) {
+  const sanitized = String(value || "").replace(/[^\d.]/g, "");
+  const parts = sanitized.split(".");
+  const integerDigits = parts[0].replace(/^0+(?=\d)/, "");
+  return {
+    integerDigits,
+    decimalDigits: parts.slice(1).join("").slice(0, 2),
+    hasDecimal: parts.length > 1,
+  };
+}
+
+function addThousandsSeparators(value) {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function formatCurrencyText(value) {
+  const { integerDigits, decimalDigits, hasDecimal } = normalizeCurrencyValue(value);
+  if (!integerDigits && !hasDecimal) return "";
+  const dollars = integerDigits ? addThousandsSeparators(integerDigits) : "0";
+  return `$${dollars}${hasDecimal ? `.${decimalDigits}` : ""}`;
+}
+
 function parseCurrency(value) {
-  const normalized = String(value || "").replace(/[$,\s]/g, "");
-  return Number(normalized);
+  const { integerDigits, decimalDigits, hasDecimal } = normalizeCurrencyValue(value);
+  if (!integerDigits && !decimalDigits) return Number.NaN;
+  return Number(`${integerDigits || "0"}${hasDecimal ? `.${decimalDigits}` : ""}`);
+}
+
+function currencyCaretPosition(value, currencyCharacterCount) {
+  if (currencyCharacterCount <= 0) return value.startsWith("$") ? 1 : 0;
+  let seen = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (/[\d.]/.test(value[index])) {
+      seen += 1;
+      if (seen >= currencyCharacterCount) return index + 1;
+    }
+  }
+  return value.length;
+}
+
+function formatCurrencyInputWhileTyping(input) {
+  const previousValue = input.value;
+  const selectionStart = input.selectionStart ?? previousValue.length;
+  const currencyCharactersBeforeCaret = (previousValue.slice(0, selectionStart).match(/[\d.]/g) || []).length;
+  input.value = formatCurrencyText(previousValue);
+  if (document.activeElement === input) {
+    const nextCaret = currencyCaretPosition(input.value, currencyCharactersBeforeCaret);
+    input.setSelectionRange(nextCaret, nextCaret);
+  }
 }
 
 function formatCurrencyInput(input) {
@@ -121,7 +167,8 @@ form.addEventListener("submit", (event) => {
 document.getElementById("goal-cancel").addEventListener("click", resetForm);
 ["goal-current", "goal-target"].forEach((id) => {
   const input = document.getElementById(id);
-  input.addEventListener("focus", () => { input.value = String(parseCurrency(input.value) || ""); });
+  input.addEventListener("input", () => formatCurrencyInputWhileTyping(input));
+  input.addEventListener("focus", () => formatCurrencyInputWhileTyping(input));
   input.addEventListener("blur", () => formatCurrencyInput(input));
 });
 
